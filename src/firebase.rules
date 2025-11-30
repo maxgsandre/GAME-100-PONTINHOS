@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is a member of the room
+    function isRoomMember(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user is the room owner
+    function isRoomOwner(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid;
+    }
+    
+    // Rooms collection
+    match /rooms/{roomId} {
+      // Anyone authenticated can create a room
+      allow create: if isAuthenticated();
+      
+      // Anyone can read room data if they know the room code (for joining)
+      allow read: if isAuthenticated();
+      
+      // Only room members can update room data
+      allow update: if isAuthenticated() && isRoomMember(roomId);
+      
+      // Only owner can delete room
+      allow delete: if isAuthenticated() && isRoomOwner(roomId);
+      
+      // Players subcollection
+      match /players/{playerId} {
+        // Authenticated users can create their player doc when joining
+        allow create: if isAuthenticated() && request.auth.uid == playerId;
+        
+        // All room members can read player data
+        allow read: if isAuthenticated() && isRoomMember(roomId);
+        
+        // Only the player can update their own data
+        allow update: if isAuthenticated() && request.auth.uid == playerId;
+        
+        // Only the player can delete their own data
+        allow delete: if isAuthenticated() && request.auth.uid == playerId;
+      }
+      
+      // Hands subcollection - private to each player
+      match /hands/{playerId} {
+        // Only the player can create their hand
+        allow create: if isAuthenticated() && request.auth.uid == playerId && isRoomMember(roomId);
+        
+        // Only the player can read their own hand
+        allow read: if isAuthenticated() && request.auth.uid == playerId;
+        
+        // Only the player can update their own hand
+        allow update: if isAuthenticated() && request.auth.uid == playerId;
+        
+        // Only the player can delete their own hand
+        allow delete: if isAuthenticated() && request.auth.uid == playerId;
+      }
+      
+      // Game state subcollection
+      match /state/{docId} {
+        // Room members can read state
+        allow read: if isAuthenticated() && isRoomMember(roomId);
+        
+        // Room members can write state (transactions handle concurrency)
+        allow write: if isAuthenticated() && isRoomMember(roomId);
+      }
+      
+      // Melds subcollection
+      match /melds/{meldId} {
+        // Room members can read melds
+        allow read: if isAuthenticated() && isRoomMember(roomId);
+        
+        // Room members can create melds
+        allow create: if isAuthenticated() && isRoomMember(roomId);
+        
+        // No updates or deletes in MVP
+        allow update, delete: if false;
+      }
+      
+      // Chat subcollection (optional)
+      match /chat/{msgId} {
+        // Room members can read chat
+        allow read: if isAuthenticated() && isRoomMember(roomId);
+        
+        // Room members can create messages
+        allow create: if isAuthenticated() && 
+                       isRoomMember(roomId) && 
+                       request.resource.data.uid == request.auth.uid;
+        
+        // Only message owner can update/delete
+        allow update, delete: if isAuthenticated() && 
+                               isRoomMember(roomId) && 
+                               resource.data.uid == request.auth.uid;
+      }
+    }
+  }
+}
