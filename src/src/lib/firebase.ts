@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, Auth } from 'firebase/auth';
+import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, Auth, User } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -11,6 +11,15 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// Validate environment variables
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error('❌ Firebase config missing! Check your .env file in src/');
+  console.error('Current env vars:', {
+    apiKey: firebaseConfig.apiKey ? '✅' : '❌',
+    projectId: firebaseConfig.projectId ? '✅' : '❌',
+  });
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
@@ -18,14 +27,27 @@ const app = initializeApp(firebaseConfig);
 export const auth: Auth = getAuth(app);
 export const db: Firestore = getFirestore(app);
 
+// Google Auth Provider
+const googleProvider = new GoogleAuthProvider();
+
 // Auth helpers
-export const signInAnonymouslyUser = async (): Promise<string> => {
+export const signInWithGoogle = async (): Promise<void> => {
   try {
-    const userCredential = await signInAnonymously(auth);
-    return userCredential.user.uid;
-  } catch (error) {
-    console.error('Error signing in anonymously:', error);
+    await signInWithRedirect(auth, googleProvider);
+  } catch (error: any) {
+    console.error('Error signing in with Google:', error);
     throw error;
+  }
+};
+
+// Get redirect result (call this after page load)
+export const getGoogleRedirectResult = async (): Promise<User | null> => {
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user || null;
+  } catch (error: any) {
+    console.error('Error getting redirect result:', error);
+    return null;
   }
 };
 

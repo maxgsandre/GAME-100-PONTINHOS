@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { auth, signInAnonymouslyUser } from './lib/firebase';
+import { auth, getGoogleRedirectResult } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useAppStore } from './app/store';
+import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Room } from './pages/Room';
 import { NotFound } from './pages/NotFound';
@@ -12,21 +13,22 @@ function App() {
   const { userId, setUserId } = useAppStore();
 
   useEffect(() => {
-    // Initialize auth
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // Check for redirect result first (after Google redirect)
+    getGoogleRedirectResult().then((user) => {
+      if (user) {
+        setUserId(user.uid);
+        setAuthLoading(false);
+      }
+    });
+
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
         setAuthLoading(false);
       } else {
-        // Sign in anonymously
-        try {
-          const uid = await signInAnonymouslyUser();
-          setUserId(uid);
-          setAuthLoading(false);
-        } catch (error) {
-          console.error('Failed to sign in:', error);
-          setAuthLoading(false);
-        }
+        // No user authenticated, show login screen
+        setAuthLoading(false);
       }
     });
 
@@ -45,14 +47,7 @@ function App() {
   }
 
   if (!userId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50">
-        <div className="text-center">
-          <h2 className="text-red-700 mb-4">Erro de Autenticação</h2>
-          <p className="text-gray-600">Não foi possível conectar. Recarregue a página.</p>
-        </div>
-      </div>
-    );
+    return <Login />;
   }
 
   return (
