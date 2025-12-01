@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, Users, Play } from 'lucide-react';
+import { Copy, Check, Users, Play, Crown } from 'lucide-react';
 import { Room, Player, subscribeToPlayers, startGame } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Chat } from './Chat';
@@ -51,89 +51,112 @@ export function Lobby({ room }: LobbyProps) {
     .filter((p): p is Player => p !== undefined);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h1 className="mb-4 text-center text-green-700">Sala de Espera</h1>
+    <div 
+      className="min-h-screen p-4 flex items-center justify-center"
+      style={{
+        backgroundImage: 'url(/mesa.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+          {/* Gradiente verde no topo */}
+          <div className="bg-gradient-to-r from-green-400 to-green-500 h-2"></div>
+          
+          <div className="p-6">
+            {/* Título */}
+            <h1 className="text-center text-2xl font-bold text-green-600 mb-6">Sala de Espera</h1>
 
-          <div className="bg-green-50 rounded-lg p-4 mb-6">
-            <p className="text-center text-sm text-gray-600 mb-2">Código da Sala</p>
-            <div className="flex items-center justify-center gap-2">
-              <div className="bg-white px-6 py-3 rounded-lg shadow-sm">
-                <p className="text-3xl tracking-widest">{room.code}</p>
-              </div>
-              <button
-                onClick={handleCopyCode}
-                className="p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {copied ? <Check size={20} /> : <Copy size={20} />}
-              </button>
-            </div>
-            <p className="text-center text-xs text-gray-500 mt-2">
-              Compartilhe este código com seus amigos
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={20} className="text-gray-600" />
-              <h3 className="text-gray-700">
-                Jogadores ({sortedPlayers.length}/4)
-              </h3>
-            </div>
-            <div className="space-y-2">
-              {sortedPlayers.map((player) => (
-                <div
-                  key={player.id}
-                  className="bg-gray-50 rounded-lg p-3 flex justify-between items-center"
+            {/* Código da Sala */}
+            <div className="mb-6">
+              <p className="text-center text-sm text-gray-600 mb-2">Código da Sala</p>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="bg-white border-2 border-green-200 px-6 py-3 rounded-lg">
+                  <p className="text-3xl font-bold tracking-widest text-gray-800">{room.code}</p>
+                </div>
+                <button
+                  onClick={handleCopyCode}
+                  className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white">
+                  {copied ? <Check size={20} /> : <Copy size={20} />}
+                </button>
+              </div>
+              <p className="text-center text-xs text-gray-500">
+                Compartilhe este código com seus amigos
+              </p>
+            </div>
+
+            {/* Divisor */}
+            <div className="border-t border-gray-200 my-6"></div>
+
+            {/* Jogadores */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users size={18} className="text-gray-600" />
+                <h3 className="text-gray-700 font-medium">
+                  Jogadores ({sortedPlayers.length}/4)
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {sortedPlayers.map((player) => (
+                  <div
+                    key={player.id}
+                    className="flex items-center gap-3"
+                  >
+                    <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
                       {player.name[0].toUpperCase()}
                     </div>
-                    <div>
-                      <p>
+                    <div className="flex items-center gap-2 flex-1">
+                      <p className="text-gray-800">
                         {player.name}
-                        {player.id === userId && ' (Você)'}
-                        {player.id === room.ownerId && ' 👑'}
+                        {player.id === userId && <span className="text-gray-500"> (Você)</span>}
                       </p>
+                      {player.id === room.ownerId && (
+                        <Crown size={16} className="text-yellow-500 fill-yellow-500" />
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
+            {/* Divisor */}
+            <div className="border-t border-gray-200 my-6"></div>
+
+            {/* Botão Iniciar Jogo */}
+            {isOwner && (
+              <div className="space-y-2">
+                <button
+                  onClick={handleStartGame}
+                  disabled={!canStart || starting}
+                  className={`
+                    w-full py-3 px-4 rounded-lg flex items-center justify-center gap-2
+                    transition-all duration-200 font-medium
+                    ${canStart && !starting
+                      ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  <Play size={18} className={canStart && !starting ? 'fill-white' : ''} />
+                  {starting ? 'Iniciando...' : 'Iniciar Jogo'}
+                </button>
+                {!canStart && (
+                  <p className="text-xs text-center text-gray-500">
+                    Aguardando mais jogadores (mínimo 2, máximo 4)
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!isOwner && (
+              <div className="text-center text-gray-600">
+                <p>Aguardando o dono da sala iniciar o jogo...</p>
+              </div>
+            )}
           </div>
-
-          {isOwner && (
-            <div className="space-y-2">
-              <button
-                onClick={handleStartGame}
-                disabled={!canStart || starting}
-                className={`
-                  w-full py-3 px-4 rounded-lg flex items-center justify-center gap-2
-                  transition-all duration-200
-                  ${canStart && !starting
-                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }
-                `}
-              >
-                <Play size={20} />
-                {starting ? 'Iniciando...' : 'Iniciar Jogo'}
-              </button>
-              {!canStart && (
-                <p className="text-xs text-center text-gray-500">
-                  Aguardando mais jogadores (mínimo 2, máximo 4)
-                </p>
-              )}
-            </div>
-          )}
-
-          {!isOwner && (
-            <div className="text-center text-gray-600">
-              <p>Aguardando o dono da sala iniciar o jogo...</p>
-            </div>
-          )}
         </div>
       </div>
 
