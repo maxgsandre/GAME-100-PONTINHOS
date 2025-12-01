@@ -61,7 +61,7 @@ export function Login() {
               </div>
 
               {/* Título */}
-              <h2 className="text-2xl font-extrabold text-slate-900">Bem-vindo de volta!</h2>
+              <h2 className="text-2xl font-extrabold text-slate-900">Bem-vindo!</h2>
               <p className="mt-1 text-[15px] text-slate-600">Faça login para começar a jogar</p>
 
               {/* Error message */}
