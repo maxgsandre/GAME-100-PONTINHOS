@@ -13,26 +13,46 @@ function App() {
   const { userId, setUserId } = useAppStore();
 
   useEffect(() => {
-    // Check for redirect result first (after Google redirect)
-    getGoogleRedirectResult().then((user) => {
-      if (user) {
-        setUserId(user.uid);
-        setAuthLoading(false);
-      }
-    });
+    let unsubscribe: (() => void) | null = null;
+    let isProcessing = false;
 
-    // Listen for auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid);
-        setAuthLoading(false);
-      } else {
-        // No user authenticated, show login screen
-        setAuthLoading(false);
+    const initAuth = async () => {
+      // First, check for redirect result (must be done before setting up listener)
+      try {
+        const redirectUser = await getGoogleRedirectResult();
+        if (redirectUser) {
+          console.log('✅ Redirect successful, user:', redirectUser.uid);
+          setUserId(redirectUser.uid);
+          setAuthLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Redirect error:', error);
       }
-    });
 
-    return () => unsubscribe();
+      // If no redirect result, set up auth state listener
+      if (!isProcessing) {
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+          console.log('🔔 Auth state changed:', user ? `User: ${user.email} (${user.uid})` : 'No user');
+          if (user) {
+            setUserId(user.uid);
+          } else {
+            setUserId(null);
+          }
+          setAuthLoading(false);
+        });
+      }
+    };
+
+    isProcessing = true;
+    initAuth();
+
+    return () => {
+      isProcessing = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [setUserId]);
 
   if (authLoading) {

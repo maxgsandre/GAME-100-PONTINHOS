@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, Auth, User } from 'firebase/auth';
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, Auth, User } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -29,13 +29,32 @@ export const db: Firestore = getFirestore(app);
 
 // Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 // Auth helpers
-export const signInWithGoogle = async (): Promise<void> => {
+export const signInWithGoogle = async (): Promise<User> => {
   try {
-    await signInWithRedirect(auth, googleProvider);
+    // Try popup first (better UX, no page reload)
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log('✅ Popup sign-in successful:', result.user.email);
+      return result.user;
+    } catch (popupError: any) {
+      // If popup is blocked, fall back to redirect
+      if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
+        console.log('ℹ️ Popup blocked, using redirect instead');
+        await signInWithRedirect(auth, googleProvider);
+        // Redirect will cause page reload, so we don't return here
+        throw new Error('Redirecting to Google...');
+      }
+      throw popupError;
+    }
   } catch (error: any) {
-    console.error('Error signing in with Google:', error);
+    console.error('❌ Error signing in with Google:', error);
     throw error;
   }
 };
@@ -44,9 +63,14 @@ export const signInWithGoogle = async (): Promise<void> => {
 export const getGoogleRedirectResult = async (): Promise<User | null> => {
   try {
     const result = await getRedirectResult(auth);
-    return result?.user || null;
+    if (result?.user) {
+      console.log('✅ Google redirect successful, user:', result.user.email);
+      return result.user;
+    }
+    console.log('ℹ️ No redirect result found');
+    return null;
   } catch (error: any) {
-    console.error('Error getting redirect result:', error);
+    console.error('❌ Error getting redirect result:', error);
     return null;
   }
 };
