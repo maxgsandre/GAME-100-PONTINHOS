@@ -10,9 +10,15 @@ export function Login() {
     try {
       setLoading(true);
       setError('');
-      await signInWithGoogle();
-      // signInWithRedirect will cause a page reload
+      const user = await signInWithGoogle();
+      // If we get here, popup was successful (no redirect happened)
+      console.log('✅ Login successful, user:', user.uid);
+      // The App.tsx will handle the auth state change
     } catch (err: any) {
+      // If it's a redirect, don't show error (page will reload)
+      if (err.message === 'Redirecting to Google...') {
+        return;
+      }
       console.error('Failed to sign in:', err);
       setError(err.message || 'Erro ao fazer login. Tente novamente.');
       setLoading(false);
