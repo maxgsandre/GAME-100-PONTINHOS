@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, LogIn, Gamepad2 } from 'lucide-react';
+import { Users, LogIn, Sparkles, Plus, DoorOpen, Key } from 'lucide-react';
 import { createRoom, joinRoom } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 
@@ -60,37 +60,127 @@ export function Home() {
 
   if (mode === 'menu') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <Gamepad2 className="text-white" size={80} />
+      <div 
+        className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden"
+        style={{
+          backgroundImage: 'url(/mesa.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        {/* Decorative dots - top left */}
+        <div className="absolute top-8 left-8 flex gap-2">
+          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+        </div>
+
+        {/* Decorative dots - bottom right */}
+        <div className="absolute bottom-8 right-8 flex gap-2">
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+        </div>
+
+        {/* Decorative shape - bottom left */}
+        <div className="absolute bottom-8 left-8 opacity-60">
+          <div className="w-12 h-12 bg-blue-400 transform rotate-12" style={{
+            clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
+          }}></div>
+        </div>
+
+        {/* Decorative cards - bottom left */}
+        <div className="absolute bottom-10 left-10 opacity-30">
+          <div className="relative">
+            <div className="w-20 h-28 bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg shadow-2xl transform rotate-12 border-2 border-blue-800"></div>
+            <div className="absolute top-2 left-2 w-20 h-28 bg-gradient-to-br from-blue-800 to-blue-600 rounded-lg shadow-xl transform rotate-6 border-2 border-blue-700"></div>
+            <div className="absolute top-4 left-4 w-20 h-28 bg-gradient-to-br from-blue-700 to-blue-500 rounded-lg shadow-lg border-2 border-blue-600"></div>
+          </div>
+        </div>
+
+        {/* Decorative chips - bottom right */}
+        <div className="absolute bottom-20 right-16 opacity-40">
+          <div className="flex gap-3">
+            <div className="w-10 h-10 bg-red-600 rounded-full shadow-xl border-2 border-red-800"></div>
+            <div className="w-10 h-10 bg-green-600 rounded-full shadow-xl border-2 border-green-800"></div>
+            <div className="w-10 h-10 bg-blue-600 rounded-full shadow-xl border-2 border-blue-800"></div>
+          </div>
+        </div>
+
+        {/* Decorative chips - top left */}
+        <div className="absolute top-20 left-16 opacity-25">
+          <div className="flex gap-2">
+            <div className="w-6 h-6 bg-orange-500 rounded-full shadow-lg"></div>
+            <div className="w-6 h-6 bg-red-500 rounded-full shadow-lg"></div>
+            <div className="w-6 h-6 bg-green-500 rounded-full shadow-lg"></div>
+            <div className="w-6 h-6 bg-blue-500 rounded-full shadow-lg"></div>
+          </div>
+        </div>
+
+        {/* Main content container */}
+        <div className="relative z-10 flex flex-col items-center p-10 bg-[#282A36] rounded-2xl shadow-2xl max-w-md w-full">
+          {/* Spade icon */}
+          <div className="mb-8">
+            <div 
+              className="text-white text-7xl font-bold"
+              style={{
+                textShadow: '0 0 15px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.4)',
+                filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.8))',
+              }}
+            >
+              ♠
             </div>
-            <h1 className="text-white mb-2">100 Pontinhos</h1>
-            <p className="text-white/90">Jogue com seus amigos!</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-2xl p-6 space-y-4">
+          {/* Title */}
+          <h1 className="text-4xl font-bold text-white mb-3 tracking-wide">
+            100 Pontinhos
+          </h1>
+
+          {/* Slogan */}
+          <p className="text-lg text-gray-300 mb-10">Jogue com seus amigos!</p>
+
+          {/* Action buttons */}
+          <div className="flex flex-col space-y-5 w-full">
             <button
               onClick={() => setMode('create')}
-              className="w-full py-4 px-6 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center gap-3 transition-colors shadow-md"
+              className="flex items-center justify-start gap-3 px-6 py-4 text-lg font-semibold text-white 
+                         bg-[#27D07F] rounded-lg shadow-lg 
+                         hover:bg-[#22B870] transition-all duration-200 ease-in-out
+                         focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-opacity-50"
             >
-              <Users size={24} />
-              <span className="text-lg">Criar Sala</span>
+              <Users size={24} className="drop-shadow-lg" />
+              <span>Criar Sala</span>
             </button>
 
             <button
               onClick={() => setMode('join')}
-              className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-3 transition-colors shadow-md"
+              className="flex items-center justify-between px-6 py-4 text-lg font-semibold text-white 
+                         bg-gradient-to-r from-[#4A70FF] to-[#9B4AFF] rounded-lg shadow-lg 
+                         hover:from-[#3D5CE6] hover:to-[#8A3FE6] transition-all duration-200 ease-in-out
+                         focus:outline-none focus:ring-4 focus:ring-purple-400 focus:ring-opacity-50"
             >
-              <LogIn size={24} />
-              <span className="text-lg">Entrar em Sala</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-white/80 text-base">[</span>
+                  <Plus size={18} className="drop-shadow-lg" />
+                  <span className="text-white/80 text-base">]</span>
+                </div>
+                <span>Entrar em Sala</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <DoorOpen size={20} className="drop-shadow-lg" />
+                <Key size={18} className="drop-shadow-lg" />
+              </div>
             </button>
           </div>
 
-          <div className="mt-6 text-center text-white/80 text-sm">
-            <p>2-4 jogadores • Modo multiplayer</p>
-          </div>
+          {/* Footer info */}
+          <p className="mt-12 text-sm text-gray-400">
+            2-4 jogadores • modo multiplayer
+          </p>
         </div>
       </div>
     );
