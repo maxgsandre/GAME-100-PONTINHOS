@@ -25,8 +25,23 @@ service cloud.firestore {
       // Anyone can read room data if they know the room code (for joining)
       allow read: if isAuthenticated();
       
-      // Only room members can update room data
-      allow update: if isAuthenticated() && isRoomMember(roomId);
+      // Allow update if:
+      // 1. User is a room member, OR
+      // 2. User is joining (room in lobby, not full), OR
+      // 3. Owner is starting the game (changing status from lobby to playing)
+      allow update: if isAuthenticated() && (
+        isRoomMember(roomId) ||
+        (
+          resource.data.status == 'lobby' &&
+          request.resource.data.status == 'lobby' &&
+          resource.data.playerOrder.size() < 4
+        ) ||
+        (
+          isRoomOwner(roomId) &&
+          resource.data.status == 'lobby' &&
+          request.resource.data.status == 'playing'
+        )
+      );
       
       // Only owner can delete room
       allow delete: if isAuthenticated() && isRoomOwner(roomId);
@@ -36,8 +51,13 @@ service cloud.firestore {
         // Authenticated users can create their player doc when joining
         allow create: if isAuthenticated() && request.auth.uid == playerId;
         
-        // All room members can read player data
-        allow read: if isAuthenticated() && isRoomMember(roomId);
+        // Allow read if:
+        // 1. User is a room member, OR
+        // 2. Room is in lobby (for checking if can join)
+        allow read: if isAuthenticated() && (
+          isRoomMember(roomId) ||
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'lobby'
+        );
         
         // Only the player can update their own data
         allow update: if isAuthenticated() && request.auth.uid == playerId;
@@ -48,8 +68,13 @@ service cloud.firestore {
       
       // Hands subcollection - private to each player
       match /hands/{playerId} {
-        // Only the player can create their hand
-        allow create: if isAuthenticated() && request.auth.uid == playerId && isRoomMember(roomId);
+        // Allow create if:
+        // 1. The player is creating their own hand, OR
+        // 2. Owner is creating hands for room members (when starting game)
+        allow create: if isAuthenticated() && (
+          (request.auth.uid == playerId && isRoomMember(roomId)) ||
+          (isRoomOwner(roomId) && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(playerId)))
+        );
         
         // Only the player can read their own hand
         allow read: if isAuthenticated() && request.auth.uid == playerId;
@@ -66,8 +91,8 @@ service cloud.firestore {
         // Room members can read state
         allow read: if isAuthenticated() && isRoomMember(roomId);
         
-        // Room members can write state (transactions handle concurrency)
-        allow write: if isAuthenticated() && isRoomMember(roomId);
+        // Room members or owner can write state (transactions handle concurrency)
+        allow write: if isAuthenticated() && (isRoomMember(roomId) || isRoomOwner(roomId));
       }
       
       // Melds subcollection
