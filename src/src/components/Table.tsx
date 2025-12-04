@@ -5,6 +5,7 @@ import { Discard } from './Discard';
 import { Melds } from './Melds';
 import { Scoreboard } from './Scoreboard';
 import { Chat } from './Chat';
+import { MobileGameLayout } from './MobileGameLayout';
 import {
   Room,
   Player,
@@ -226,9 +227,64 @@ export function Table({ room }: TableProps) {
 
   const currentPlayer = players.find(p => p.id === room.playerOrder[room.turnIndex]);
 
+  // Prepare players data for mobile layout
+  const playersForMobile = room.playerOrder.map((playerId, index) => {
+    const player = players.find(p => p.id === playerId);
+    return {
+      name: player?.name || 'Jogador',
+      score: player?.score || 0,
+      isYou: playerId === userId,
+      isTurn: index === room.turnIndex,
+    };
+  });
+
+  const playerNamesMap = players.reduce((acc, player) => {
+    acc[player.id] = player.name;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const handleCardSelect = (card: Card) => {
+    if (!isMyTurn) return;
+    
+    let newSelected: Card[];
+    if (selectedCards.includes(card)) {
+      newSelected = selectedCards.filter(c => c !== card);
+    } else {
+      newSelected = [...selectedCards, card];
+    }
+    setSelectedCards(newSelected);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-600 to-blue-600 p-4">
-      <div className="max-w-6xl mx-auto space-y-4">
+    <>
+      {/* Mobile Layout */}
+      <div className="md:hidden">
+        <MobileGameLayout
+          round={room.round}
+          lastAction={room.lastAction}
+          players={playersForMobile}
+          discardTop={room.discardTop}
+          stockCount={deckState.stock.length}
+          hand={hand.cards}
+          selectedCards={selectedCards}
+          melds={melds}
+          playerNames={playerNamesMap}
+          canPlay={isMyTurn && !actionInProgress}
+          hasDrawn={hasDrawn}
+          rules={room.rules}
+          onBuyStock={handleDrawStock}
+          onBuyDiscard={handleDrawDiscard}
+          onCardSelect={handleCardSelect}
+          onDiscard={() => handleDiscard()}
+          onMeld={handleLayDownMelds}
+          onKnock={handleGoOut}
+        />
+        <Chat roomId={room.id} />
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:block min-h-screen bg-gradient-to-br from-green-600 to-blue-600 p-4">
+        <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-lg p-4">
           <div className="flex justify-between items-center">
@@ -355,10 +411,11 @@ export function Table({ room }: TableProps) {
             selectable={isMyTurn}
           />
         </div>
-      </div>
 
-      {/* Chat */}
-      <Chat roomId={room.id} />
-    </div>
+        {/* Chat */}
+        <Chat roomId={room.id} />
+        </div>
+      </div>
+    </>
   );
 }
