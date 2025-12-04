@@ -21,6 +21,7 @@ import {
   discardCard,
   layDownMelds,
   goOut,
+  reorderHand,
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
@@ -255,6 +256,17 @@ export function Table({ room }: TableProps) {
     setSelectedCards(newSelected);
   };
 
+  const handleReorderHand = async (newOrder: Card[]) => {
+    if (!hand) return;
+    
+    try {
+      await reorderHand(room.id, newOrder);
+    } catch (error: any) {
+      console.error('Erro ao reordenar cartas:', error);
+      // Não mostrar alerta para não interromper a experiência
+    }
+  };
+
   return (
     <>
       {/* Mobile Layout */}
@@ -278,6 +290,7 @@ export function Table({ room }: TableProps) {
           onDiscard={() => handleDiscard()}
           onMeld={handleLayDownMelds}
           onKnock={handleGoOut}
+          onReorderHand={handleReorderHand}
         />
         <Chat roomId={room.id} />
       </div>
