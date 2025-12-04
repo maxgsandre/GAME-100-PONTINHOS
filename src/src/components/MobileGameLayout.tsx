@@ -29,6 +29,7 @@ interface MobileGameLayoutProps {
   onDiscard: () => void;
   onMeld: () => void;
   onKnock: () => void;
+  onReorderHand?: (newOrder: Card[]) => void;
 }
 
 export function MobileGameLayout({
@@ -50,6 +51,7 @@ export function MobileGameLayout({
   onDiscard,
   onMeld,
   onKnock,
+  onReorderHand,
 }: MobileGameLayoutProps) {
   const actions = [
     {
@@ -171,6 +173,7 @@ export function MobileGameLayout({
             selectedCards={selectedCards}
             onCardSelect={onCardSelect}
             selectable={canPlay}
+            onReorder={onReorderHand}
           />
         </div>
       </main>
