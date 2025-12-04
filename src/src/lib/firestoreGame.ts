@@ -485,6 +485,33 @@ export const goOut = async (roomId: string, melds: Meld[], discardCard: Card): P
   });
 };
 
+// Reorder cards in hand
+export const reorderHand = async (roomId: string, newCardOrder: Card[]): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+    const handData = handDoc.data() as Hand;
+
+    // Verify all cards are present
+    if (newCardOrder.length !== handData.cards.length) {
+      throw new Error('Número de cartas não corresponde');
+    }
+
+    const hasAllCards = newCardOrder.every(card => handData.cards.includes(card));
+    if (!hasAllCards) {
+      throw new Error('Cartas inválidas');
+    }
+
+    // Update hand with new order
+    transaction.update(handRef, {
+      cards: newCardOrder,
+    });
+  });
+};
+
 // Subscribe to room updates
 export const subscribeToRoom = (roomId: string, callback: (room: Room) => void) => {
   const roomRef = doc(db, 'rooms', roomId);
