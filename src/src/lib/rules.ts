@@ -212,7 +212,6 @@ export const validateMultipleMelds = (cards: Card[], melds: Meld[]): { valid: bo
 // Find all possible melds from a set of cards (helper for UI)
 export const findAllMelds = (cards: Card[]): Meld[] => {
   const allMelds: Meld[] = [];
-  const used = new Set<Card>();
 
   // Try sequences first (they're usually longer)
   const bySuit: Record<Suit, Card[]> = { H: [], D: [], C: [], S: [] };
