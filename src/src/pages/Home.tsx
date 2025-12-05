@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, LogIn, Sparkles, Plus, DoorOpen, Key } from 'lucide-react';
+import { Users, Plus, DoorOpen, Key } from 'lucide-react';
 import { createRoom, joinRoom } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 
