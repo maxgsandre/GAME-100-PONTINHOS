@@ -204,7 +204,7 @@ export function Home() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Digite seu nome"
                   maxLength={20}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-gray-400"
                   style={{ color: '#111827' }}
                   disabled={loading}
                 />
@@ -260,7 +260,7 @@ export function Home() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Digite seu nome"
                 maxLength={20}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
                 style={{ color: '#111827' }}
                 disabled={loading}
               />
@@ -279,7 +279,7 @@ export function Home() {
                 }}
                 placeholder="000000"
                 maxLength={6}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl tracking-widest bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl tracking-widest bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
                 style={{ color: '#111827' }}
                 disabled={loading}
               />
