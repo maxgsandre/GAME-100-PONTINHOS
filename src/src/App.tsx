@@ -14,15 +14,22 @@ function App() {
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
-    let isProcessing = false;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     const initAuth = async () => {
+      // Safety timeout - if auth doesn't resolve in 10 seconds, stop loading
+      timeoutId = setTimeout(() => {
+        console.warn('⚠️ Auth initialization timeout - stopping loading');
+        setAuthLoading(false);
+      }, 10000);
+
       // First, check for redirect result (must be done before setting up listener)
       try {
         const redirectUser = await getGoogleRedirectResult();
         if (redirectUser) {
           console.log('✅ Redirect successful, user:', redirectUser.uid);
           setUserId(redirectUser.uid);
+          if (timeoutId) clearTimeout(timeoutId);
           setAuthLoading(false);
           return;
         }
@@ -31,24 +38,22 @@ function App() {
       }
 
       // If no redirect result, set up auth state listener
-      if (!isProcessing) {
-        unsubscribe = onAuthStateChanged(auth, (user) => {
-          console.log('🔔 Auth state changed:', user ? `User: ${user.email} (${user.uid})` : 'No user');
-          if (user) {
-            setUserId(user.uid);
-          } else {
-            setUserId(null);
-          }
-          setAuthLoading(false);
-        });
-      }
+      unsubscribe = onAuthStateChanged(auth, (user) => {
+        console.log('🔔 Auth state changed:', user ? `User: ${user.email} (${user.uid})` : 'No user');
+        if (user) {
+          setUserId(user.uid);
+        } else {
+          setUserId(null);
+        }
+        if (timeoutId) clearTimeout(timeoutId);
+        setAuthLoading(false);
+      });
     };
 
-    isProcessing = true;
     initAuth();
 
     return () => {
-      isProcessing = false;
+      if (timeoutId) clearTimeout(timeoutId);
       if (unsubscribe) {
         unsubscribe();
       }
