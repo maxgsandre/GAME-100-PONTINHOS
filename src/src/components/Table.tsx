@@ -23,6 +23,7 @@ import {
   goOut,
   reorderHand,
   leaveRoom,
+  addCardToMeld,
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
@@ -113,6 +114,12 @@ export function Table({ room }: TableProps) {
 
   const handleLayDownMelds = async () => {
     if (!isMyTurn || selectedCards.length < 3 || actionInProgress) return;
+
+    // Block laying down melds in first round
+    if (room.round === 1) {
+      alert('Não é permitido baixar combinações na primeira rodada');
+      return;
+    }
 
     // Group selected cards into melds
     const meld = isValidMeld(selectedCards);
@@ -284,6 +291,19 @@ export function Table({ room }: TableProps) {
     }
   };
 
+  const handleAddCardToMeld = async (meldId: string, card: Card) => {
+    if (!isMyTurn || actionInProgress) return;
+
+    try {
+      setActionInProgress(true);
+      await addCardToMeld(room.id, meldId, card);
+    } catch (error: any) {
+      alert(error.message || 'Erro ao adicionar carta à combinação');
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
   return (
     <>
       {/* Mobile Layout */}
@@ -376,7 +396,13 @@ export function Table({ room }: TableProps) {
 
             {/* Melds */}
             {melds.length > 0 && (
-              <Melds melds={melds} players={players} />
+              <Melds
+                melds={melds}
+                players={players}
+                hand={hand?.cards || []}
+                isMyTurn={isMyTurn}
+                onAddCardToMeld={handleAddCardToMeld}
+              />
             )}
           </div>
 

@@ -7,7 +7,7 @@ export interface GameRules {
 
 export const DEFAULT_RULES: GameRules = {
   aceValue: 15,
-  allowLayoff: false,
+  allowLayoff: true, // Permitir adicionar cartas às combinações de outros jogadores
 };
 
 // Meld types
@@ -267,4 +267,42 @@ export const findAllMelds = (cards: Card[]): Meld[] => {
   }
 
   return allMelds;
+};
+
+// Check if a card can be added to an existing meld (layoff)
+export const canAddCardToMeld = (card: Card, meld: Meld): boolean => {
+  const { rank: cardRank, suit: cardSuit } = parseCard(card);
+  const meldCards = meld.cards.map(parseCard);
+
+  if (meld.type === 'sequence') {
+    // For sequences: card must be same suit and IMMEDIATELY consecutive (no gaps)
+    // Check if can be added at the beginning or end ONLY
+    const sorted = [...meldCards].sort((a, b) => getRankValue(a.rank) - getRankValue(b.rank));
+    
+    // All cards must be same suit
+    if (sorted[0].suit !== cardSuit) return false;
+    
+    const firstRank = getRankValue(sorted[0].rank);
+    const lastRank = getRankValue(sorted[sorted.length - 1].rank);
+    const cardRankValue = getRankValue(cardRank);
+    
+    // Check if can be added at the beginning (immediately before first card)
+    if (cardRankValue === firstRank - 1) return true;
+    
+    // Check if can be added at the end (immediately after last card)
+    if (cardRankValue === lastRank + 1) return true;
+    
+    // Special case: Ace can be high (Q, K, A) or low (A, 2, 3)
+    // If sequence ends with K, can add A
+    if (cardRank === 'A' && sorted[sorted.length - 1].rank === 'K') return true;
+    // If sequence starts with A, can add 2 (A is value 1, 2 is value 2)
+    if (sorted[0].rank === 'A' && cardRankValue === 2) return true;
+    
+    // Cannot add if there's a gap (e.g., sequence is A♦ 2♦ 3♦, cannot add 5♦ without 4♦)
+    return false;
+  } else {
+    // For sets/trincas: card must have same rank (can be same suit, that's allowed)
+    // All cards of the same rank can be added, regardless of suit
+    return meldCards[0].rank === cardRank;
+  }
 };

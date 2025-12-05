@@ -12,8 +12,8 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db, getCurrentUserId } from './firebase';
-import { Card, generateDoubleDeck, shuffleDeck } from './deck';
-import { GameRules, DEFAULT_RULES, Meld } from './rules';
+import { Card, generateDoubleDeck, shuffleDeck, parseCard, getRankValue } from './deck';
+import { GameRules, DEFAULT_RULES, Meld, canAddCardToMeld } from './rules';
 
 export interface Room {
   id: string;
@@ -397,6 +397,11 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
       throw new Error('Não é seu turno');
     }
 
+    // Block laying down melds in first round
+    if (roomData.round === 1) {
+      throw new Error('Não é permitido baixar combinações na primeira rodada');
+    }
+
     // Verify player has all cards
     const handRef = doc(db, 'rooms', roomId, 'hands', userId);
     const handDoc = await transaction.get(handRef);
@@ -543,6 +548,85 @@ export const leaveRoom = async (roomId: string): Promise<void> => {
     if (handDoc.exists()) {
       transaction.delete(handRef);
     }
+  });
+};
+
+// Add card to existing meld (layoff)
+export const addCardToMeld = async (roomId: string, meldId: string, card: Card): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomDoc = await transaction.get(roomRef);
+    const roomData = roomDoc.data() as Room;
+
+    // Verify it's player's turn
+    const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
+    if (currentPlayerId !== userId) {
+      throw new Error('Não é seu turno');
+    }
+
+    // Verify rules allow layoff
+    if (!roomData.rules.allowLayoff) {
+      throw new Error('Adicionar cartas às combinações não está permitido');
+    }
+
+    // Get player's hand
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+    const handData = handDoc.data() as Hand;
+
+    if (!handData.cards.includes(card)) {
+      throw new Error('Carta não está na sua mão');
+    }
+
+    // Get meld
+    const meldRef = doc(db, 'rooms', roomId, 'melds', meldId);
+    const meldDoc = await transaction.get(meldRef);
+    
+    if (!meldDoc.exists()) {
+      throw new Error('Combinação não encontrada');
+    }
+
+    const meldData = meldDoc.data() as MeldDoc;
+    
+    // Validate card can be added
+    const meld: Meld = {
+      type: meldData.type,
+      cards: meldData.cards,
+    };
+    
+    if (!canAddCardToMeld(card, meld)) {
+      throw new Error('Esta carta não pode ser adicionada a esta combinação');
+    }
+
+    // Remove card from hand
+    const newHand = handData.cards.filter(c => c !== card);
+
+    // Add card to meld
+    const updatedMeldCards = [...meldData.cards, card];
+    
+    // Sort meld cards if it's a sequence
+    if (meldData.type === 'sequence') {
+      updatedMeldCards.sort((a, b) => {
+        const cardA = parseCard(a);
+        const cardB = parseCard(b);
+        return getRankValue(cardA.rank) - getRankValue(cardB.rank);
+      });
+    }
+
+    transaction.update(handRef, {
+      cards: newHand,
+    });
+
+    transaction.update(meldRef, {
+      cards: updatedMeldCards,
+    });
+
+    transaction.update(roomRef, {
+      lastAction: 'Adicionou carta a uma combinação',
+    });
   });
 };
 
