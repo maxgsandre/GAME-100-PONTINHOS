@@ -22,17 +22,20 @@ import {
   layDownMelds,
   goOut,
   reorderHand,
+  leaveRoom,
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
 import { isValidMeld, Meld, canGoOut, calculateHandPoints, validateMultipleMelds, findAllMelds } from '../lib/rules';
 import { ArrowDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface TableProps {
   room: Room;
 }
 
 export function Table({ room }: TableProps) {
+  const navigate = useNavigate();
   const userId = useAppStore(state => state.userId);
   const [players, setPlayers] = useState<Player[]>([]);
   const [hand, setHand] = useState<Hand | null>(null);
@@ -267,6 +270,20 @@ export function Table({ room }: TableProps) {
     }
   };
 
+  const handleLeaveRoom = async () => {
+    if (!confirm('Tem certeza que deseja sair da partida?')) {
+      return;
+    }
+
+    try {
+      await leaveRoom(room.id);
+      navigate('/');
+    } catch (error: any) {
+      console.error('Erro ao sair da sala:', error);
+      alert(error.message || 'Erro ao sair da partida');
+    }
+  };
+
   return (
     <>
       {/* Mobile Layout */}
@@ -291,6 +308,7 @@ export function Table({ room }: TableProps) {
           onMeld={handleLayDownMelds}
           onKnock={handleGoOut}
           onReorderHand={handleReorderHand}
+          onLeaveRoom={handleLeaveRoom}
         />
         <Chat roomId={room.id} />
       </div>
@@ -307,9 +325,21 @@ export function Table({ room }: TableProps) {
                 {isMyTurn ? '🟢 Sua vez!' : `Vez de ${currentPlayer?.name || 'outro jogador'}`}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Última ação:</p>
-              <p className="text-sm">{room.lastAction || 'Nenhuma'}</p>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Última ação:</p>
+                <p className="text-sm">{room.lastAction || 'Nenhuma'}</p>
+              </div>
+              <button
+                onClick={handleLeaveRoom}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                aria-label="Sair da partida"
+                title="Sair da partida"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
