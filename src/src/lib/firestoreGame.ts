@@ -2,7 +2,6 @@ import {
   collection,
   doc,
   setDoc,
-  getDoc,
   updateDoc,
   onSnapshot,
   query,
@@ -10,7 +9,6 @@ import {
   getDocs,
   runTransaction,
   serverTimestamp,
-  deleteDoc,
   Timestamp,
 } from 'firebase/firestore';
 import { db, getCurrentUserId } from './firebase';
