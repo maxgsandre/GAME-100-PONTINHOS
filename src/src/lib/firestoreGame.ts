@@ -248,6 +248,11 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
     const handDoc = await transaction.get(handRef);
     const handData = handDoc.data() as Hand;
 
+    // Validar que não pode ter mais de 10 cartas após comprar
+    if (handData.cards.length >= 10) {
+      throw new Error('Você já tem 10 cartas. Descartar uma carta antes de comprar novamente.');
+    }
+
     transaction.update(handRef, {
       cards: [...handData.cards, card],
     });
@@ -301,6 +306,11 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
     const handDoc = await transaction.get(handRef);
     const handData = handDoc.data() as Hand;
 
+    // Validar que não pode ter mais de 10 cartas após comprar
+    if (handData.cards.length >= 10) {
+      throw new Error('Você já tem 10 cartas. Descartar uma carta antes de comprar novamente.');
+    }
+
     transaction.update(handRef, {
       cards: [...handData.cards, card],
     });
@@ -342,6 +352,12 @@ export const discardCard = async (roomId: string, card: Card): Promise<void> => 
     }
 
     const newHand = handData.cards.filter(c => c !== card);
+
+    // Validar que após descartar, o jogador deve ter 9 cartas (ou menos se baixou combinações)
+    // Mas nunca mais de 9 se não baixou combinações
+    if (newHand.length > 9) {
+      throw new Error('Após descartar, você deve ter no máximo 9 cartas. Baixe combinações primeiro.');
+    }
 
     // Add to discard pile
     const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
@@ -482,6 +498,53 @@ export const goOut = async (roomId: string, melds: Meld[], discardCard: Card): P
       winnerId: userId,
       lastAction: 'Bateu!',
     });
+  });
+};
+
+// Leave room
+export const leaveRoom = async (roomId: string): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    // First, do all reads
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomDoc = await transaction.get(roomRef);
+    
+    if (!roomDoc.exists()) {
+      return; // Room doesn't exist, nothing to do
+    }
+
+    const roomData = roomDoc.data() as Room;
+
+    // Read hand doc to check if it exists
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+
+    // Now do all writes
+    // Remove player from playerOrder
+    const newPlayerOrder = roomData.playerOrder.filter(id => id !== userId);
+    
+    // If player was the owner and there are other players, transfer ownership
+    let newOwnerId = roomData.ownerId;
+    if (roomData.ownerId === userId && newPlayerOrder.length > 0) {
+      newOwnerId = newPlayerOrder[0];
+    }
+
+    // Update room
+    transaction.update(roomRef, {
+      playerOrder: newPlayerOrder,
+      ownerId: newOwnerId,
+    });
+
+    // Delete player doc
+    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+    transaction.delete(playerRef);
+
+    // Delete player's hand if exists
+    if (handDoc.exists()) {
+      transaction.delete(handRef);
+    }
   });
 };
 
