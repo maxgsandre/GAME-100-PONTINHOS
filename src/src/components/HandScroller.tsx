@@ -20,7 +20,6 @@ export function HandScroller({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const touchStartPos = useRef<{ x: number; y: number; index: number } | null>(null);
-  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (!onReorder) {
@@ -119,7 +118,7 @@ export function HandScroller({
       }
     };
 
-    const handleGlobalTouchEnd = (e: TouchEvent) => {
+    const handleGlobalTouchEnd = () => {
       if (!touchStartPos.current) return;
       
       // Se estava arrastando, tenta fazer drop
@@ -243,7 +242,7 @@ export function HandScroller({
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             onTouchStart={(e) => handleTouchStart(e, index)}
-            onClick={(e) => {
+            onClick={() => {
               // Só permitir click se não estiver arrastando
               if (draggedIndex === null && touchStartPos.current === null && selectable) {
                 onCardSelect(card);
