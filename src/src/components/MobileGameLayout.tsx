@@ -7,6 +7,7 @@ import { MeldDoc } from '../lib/firestoreGame';
 import { getCardDisplay } from '../lib/deck';
 import { calculateHandPoints } from '../lib/rules';
 import { GameRules } from '../lib/rules';
+import { LogOut } from 'lucide-react';
 
 type Player = { name: string; score: number; isYou?: boolean; isTurn?: boolean };
 
@@ -30,6 +31,7 @@ interface MobileGameLayoutProps {
   onMeld: () => void;
   onKnock: () => void;
   onReorderHand?: (newOrder: Card[]) => void;
+  onLeaveRoom?: () => void;
 }
 
 export function MobileGameLayout({
@@ -52,6 +54,7 @@ export function MobileGameLayout({
   onMeld,
   onKnock,
   onReorderHand,
+  onLeaveRoom,
 }: MobileGameLayoutProps) {
   const actions = [
     {
@@ -94,9 +97,21 @@ export function MobileGameLayout({
                 <span className="bg-green-500 text-white text-[10px] px-1.5 py-0 rounded">Sua vez!</span>
               )}
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-emerald-300">Última ação</p>
-              <p className="text-xs text-white font-medium">{lastAction || 'Jogo iniciado'}</p>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <p className="text-[10px] text-emerald-300">Última ação</p>
+                <p className="text-xs text-white font-medium">{lastAction || 'Jogo iniciado'}</p>
+              </div>
+              {onLeaveRoom && (
+                <button
+                  onClick={onLeaveRoom}
+                  className="p-1.5 text-emerald-300/70 hover:text-white hover:bg-emerald-800/50 rounded transition-colors"
+                  aria-label="Sair da partida"
+                  title="Sair da partida"
+                >
+                  <LogOut size={16} />
+                </button>
+              )}
             </div>
           </div>
         </div>
