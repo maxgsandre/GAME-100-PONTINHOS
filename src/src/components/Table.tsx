@@ -26,7 +26,7 @@ import {
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
-import { isValidMeld, Meld, canGoOut, calculateHandPoints, validateMultipleMelds, findAllMelds } from '../lib/rules';
+import { isValidMeld, Meld, calculateHandPoints, validateMultipleMelds, findAllMelds } from '../lib/rules';
 import { ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
