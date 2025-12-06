@@ -7,15 +7,28 @@ import { useAppStore } from '../app/store';
 interface ChatProps {
   roomId: string;
   className?: string;
+  isOpen?: boolean;
+  onToggle?: (open: boolean) => void;
+  onMessageCountChange?: (count: number) => void;
 }
 
-export function Chat({ roomId, className = '' }: ChatProps) {
+export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle, onMessageCountChange }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { userId } = useAppStore();
+
+  // Use external state if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = (open: boolean) => {
+    if (onToggle) {
+      onToggle(open);
+    } else {
+      setInternalIsOpen(open);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeToChat(roomId, setMessages);
@@ -26,6 +39,13 @@ export function Chat({ roomId, className = '' }: ChatProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Notify parent of message count changes
+  useEffect(() => {
+    if (onMessageCountChange) {
+      onMessageCountChange(messages.length);
+    }
+  }, [messages.length, onMessageCountChange]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +69,12 @@ export function Chat({ roomId, className = '' }: ChatProps) {
     return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // If chat is closed and onMessageCountChange is provided, render nothing (button is in header)
+  if (!isOpen && onMessageCountChange) {
+    return null;
+  }
+
+  // If chat is closed, show default floating button
   if (!isOpen) {
     return (
       <button

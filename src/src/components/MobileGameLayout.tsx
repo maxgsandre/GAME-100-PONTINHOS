@@ -3,7 +3,9 @@ import { DeckArea } from './DeckArea';
 import { HandScroller } from './HandScroller';
 import { MeldDoc } from '../lib/firestoreGame';
 import { GameRules } from '../lib/rules';
-import { LogOut } from 'lucide-react';
+import { LogOut, MessageSquare } from 'lucide-react';
+import { useState } from 'react';
+import { Chat } from './Chat';
 
 type Player = { 
   id: string;
@@ -29,6 +31,7 @@ interface MobileGameLayoutProps {
   canPlay: boolean;
   hasDrawn: boolean;
   rules?: GameRules;
+  roomId: string;
   onBuyStock: () => void;
   onBuyDiscard: () => void;
   onCardSelect: (card: Card) => void;
@@ -140,6 +143,7 @@ export function MobileGameLayout({
   selectedCards,
   canPlay,
   hasDrawn,
+  roomId,
   onBuyStock,
   onBuyDiscard,
   onCardSelect,
@@ -148,6 +152,9 @@ export function MobileGameLayout({
   onReorderHand,
   onLeaveRoom,
 }: MobileGameLayoutProps) {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+
   // Separate players by position
   const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   const bottomPlayer = players.find(p => (p.position === 'bottom' || p.isYou));
@@ -188,6 +195,20 @@ export function MobileGameLayout({
               {canPlay && (
                 <span className="bg-green-500 text-white text-[10px] px-1.5 py-0 rounded">Sua vez!</span>
               )}
+              {/* Chat Button */}
+              <button
+                onClick={() => setChatOpen(true)}
+                className="relative p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors"
+                aria-label="Abrir chat"
+                title="Abrir chat"
+              >
+                <MessageSquare size={18} />
+                {messageCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                    {messageCount}
+                  </span>
+                )}
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right">
@@ -301,6 +322,14 @@ export function MobileGameLayout({
           </div>
         )}
       </div>
+
+      {/* Chat */}
+      <Chat 
+        roomId={roomId} 
+        isOpen={chatOpen}
+        onToggle={setChatOpen}
+        onMessageCountChange={setMessageCount}
+      />
     </div>
   );
 }

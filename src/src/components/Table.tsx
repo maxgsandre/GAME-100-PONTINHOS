@@ -388,6 +388,7 @@ export function Table({ room }: TableProps) {
           canPlay={isMyTurn && !actionInProgress}
           hasDrawn={hasDrawn}
           rules={room.rules}
+          roomId={room.id}
           onBuyStock={handleDrawStock}
           onBuyDiscard={handleDrawDiscard}
           onCardSelect={handleCardSelect}
@@ -397,7 +398,6 @@ export function Table({ room }: TableProps) {
           onReorderHand={handleReorderHand}
           onLeaveRoom={handleLeaveRoom}
         />
-        <Chat roomId={room.id} />
       </div>
 
       {/* Desktop Layout */}
