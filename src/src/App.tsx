@@ -12,6 +12,57 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const { userId, setUserId } = useAppStore();
 
+  // Service Worker update detection and cache clearing
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      // Clear all caches on load to ensure fresh content
+      caches.keys().then((cacheNames) => {
+        cacheNames.forEach((cacheName) => {
+          // Keep only firestore cache, clear others
+          if (!cacheName.includes('firestore')) {
+            caches.delete(cacheName);
+          }
+        });
+      });
+
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          // Check for updates immediately
+          registration.update();
+
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated') {
+                  // Clear all caches when new worker activates
+                  caches.keys().then((cacheNames) => {
+                    cacheNames.forEach((cacheName) => {
+                      caches.delete(cacheName);
+                    });
+                  });
+                  // Force reload when new service worker is activated
+                  window.location.reload();
+                }
+              });
+            }
+          });
+        });
+      });
+
+      // Check for updates every 10 seconds
+      const updateInterval = setInterval(() => {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.update();
+          });
+        });
+      }, 10000);
+
+      return () => clearInterval(updateInterval);
+    }
+  }, []);
+
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     let timeoutId: NodeJS.Timeout | null = null;

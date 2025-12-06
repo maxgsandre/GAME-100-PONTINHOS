@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: '100 Pontinhos',
@@ -34,6 +34,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        navigationPreload: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
@@ -42,14 +46,30 @@ export default defineConfig({
               cacheName: 'firestore-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 300
+                maxAgeSeconds: 60 // Reduzido para 1 minuto
               },
               cacheableResponse: {
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            urlPattern: /\.(?:js|css|html)$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'static-resources',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 30 // Cache por apenas 30 segundos
+              },
+              networkTimeoutSeconds: 3
+            }
           }
         ]
+      },
+      devOptions: {
+        enabled: false, // Desabilitar PWA em desenvolvimento para evitar cache
+        type: 'module'
       }
     })
   ]
