@@ -85,8 +85,16 @@ export const getCurrentUserData = (): { name: string; photoURL: string | null } 
   const user = auth.currentUser;
   if (!user) return null;
   
+  // Get only the first name from displayName
+  let firstName = 'Jogador';
+  if (user.displayName) {
+    firstName = user.displayName.split(' ')[0];
+  } else if (user.email) {
+    firstName = user.email.split('@')[0];
+  }
+  
   return {
-    name: user.displayName || user.email?.split('@')[0] || 'Jogador',
+    name: firstName,
     photoURL: user.photoURL || null,
   };
 };
