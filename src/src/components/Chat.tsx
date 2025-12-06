@@ -29,11 +29,11 @@ export function Chat({ roomId, className = '' }: ChatProps) {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || sending || !playerName) return;
+    if (!inputText.trim() || sending) return;
 
     try {
       setSending(true);
-      await sendChatMessage(roomId, inputText, playerName);
+      await sendChatMessage(roomId, inputText);
       setInputText('');
     } catch (error: any) {
       console.error('Error sending message:', error);

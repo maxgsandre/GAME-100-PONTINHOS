@@ -80,6 +80,17 @@ export const getCurrentUserId = (): string | null => {
   return auth.currentUser?.uid || null;
 };
 
+// Get current user data (name and photo from Google)
+export const getCurrentUserData = (): { name: string; photoURL: string | null } | null => {
+  const user = auth.currentUser;
+  if (!user) return null;
+  
+  return {
+    name: user.displayName || user.email?.split('@')[0] || 'Jogador',
+    photoURL: user.photoURL || null,
+  };
+};
+
 // Wait for auth to initialize
 export const waitForAuth = (): Promise<string | null> => {
   return new Promise((resolve) => {

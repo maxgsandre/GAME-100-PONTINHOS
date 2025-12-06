@@ -33,6 +33,17 @@ export function Scoreboard({ players, playerOrder, currentTurnIndex, currentUser
                 {isCurrentTurn && (
                   <span className="text-green-600 text-xl">▶</span>
                 )}
+                {player.photoURL ? (
+                  <img
+                    src={player.photoURL}
+                    alt={player.name}
+                    className="w-8 h-8 rounded-full object-cover border-2 border-gray-300"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                    {player.name[0].toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <p className={isCurrentUser ? 'text-blue-600' : ''}>
                     {player.name} {isCurrentUser && '(Você)'}

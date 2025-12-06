@@ -105,9 +105,17 @@ export function Lobby({ room }: LobbyProps) {
                     key={player.id}
                     className="flex items-center gap-3"
                   >
-                    <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                      {player.name[0].toUpperCase()}
-                    </div>
+                    {player.photoURL ? (
+                      <img
+                        src={player.photoURL}
+                        alt={player.name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-purple-500"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                        {player.name[0].toUpperCase()}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 flex-1">
                       <p className="text-gray-800">
                         {player.name}

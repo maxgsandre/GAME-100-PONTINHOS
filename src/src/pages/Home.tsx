@@ -9,23 +9,22 @@ export function Home() {
   const { setCurrentRoomId, setPlayerName } = useAppStore();
 
   const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
-  const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Digite seu nome');
-      return;
-    }
 
     try {
       setLoading(true);
       setError('');
-      const { roomId } = await createRoom(name.trim());
-      setPlayerName(name.trim());
+      const { roomId } = await createRoom();
+      const { getCurrentUserData } = await import('../lib/firebase');
+      const userData = getCurrentUserData();
+      if (userData) {
+        setPlayerName(userData.name);
+      }
       setCurrentRoomId(roomId);
       navigate(`/room/${roomId}`);
     } catch (err: any) {
@@ -36,10 +35,6 @@ export function Home() {
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Digite seu nome');
-      return;
-    }
     if (!code.trim() || code.trim().length !== 6) {
       setError('Digite o código da sala (6 dígitos)');
       return;
@@ -48,8 +43,12 @@ export function Home() {
     try {
       setLoading(true);
       setError('');
-      const roomId = await joinRoom(code.trim(), name.trim());
-      setPlayerName(name.trim());
+      const roomId = await joinRoom(code.trim());
+      const { getCurrentUserData } = await import('../lib/firebase');
+      const userData = getCurrentUserData();
+      if (userData) {
+        setPlayerName(userData.name);
+      }
       setCurrentRoomId(roomId);
       navigate(`/room/${roomId}`);
     } catch (err: any) {
@@ -194,22 +193,6 @@ export function Home() {
             <h2 className="mb-6 text-green-700">Criar Nova Sala</h2>
 
             <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Seu Nome
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Digite seu nome"
-                  maxLength={20}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-gray-400"
-                  style={{ color: '#111827' }}
-                  disabled={loading}
-                />
-              </div>
-
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-700">{error}</p>
@@ -250,22 +233,6 @@ export function Home() {
           <h2 className="mb-6 text-blue-700">Entrar em Sala</h2>
 
           <form onSubmit={handleJoinRoom} className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-2">
-                Seu Nome
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Digite seu nome"
-                maxLength={20}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
-                style={{ color: '#111827' }}
-                disabled={loading}
-              />
-            </div>
-
             <div>
               <label className="block text-sm text-gray-700 mb-2">
                 Código da Sala

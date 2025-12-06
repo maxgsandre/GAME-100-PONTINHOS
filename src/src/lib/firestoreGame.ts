@@ -11,7 +11,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { db, getCurrentUserId } from './firebase';
+import { db, getCurrentUserId, getCurrentUserData } from './firebase';
 import { Card, generateDoubleDeck, shuffleDeck, parseCard, getRankValue } from './deck';
 import { GameRules, DEFAULT_RULES, Meld, canAddCardToMeld } from './rules';
 
@@ -34,6 +34,7 @@ export interface Room {
 export interface Player {
   id: string;
   name: string;
+  photoURL?: string; // Google profile photo
   joinedAt: Timestamp;
   score: number;
   isReady: boolean;
@@ -61,9 +62,12 @@ export const generateRoomCode = (): string => {
 };
 
 // Create a new room
-export const createRoom = async (playerName: string): Promise<{ roomId: string; code: string }> => {
+export const createRoom = async (): Promise<{ roomId: string; code: string }> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
+
+  const userData = getCurrentUserData();
+  if (!userData) throw new Error('User data not available');
 
   const code = generateRoomCode();
   const roomRef = doc(collection(db, 'rooms'));
@@ -83,10 +87,11 @@ export const createRoom = async (playerName: string): Promise<{ roomId: string; 
 
   await setDoc(roomRef, roomData);
 
-  // Create player doc
+  // Create player doc with Google data
   const playerRef = doc(db, 'rooms', roomId, 'players', userId);
   const playerData: Omit<Player, 'id'> = {
-    name: playerName,
+    name: userData.name,
+    photoURL: userData.photoURL || undefined,
     joinedAt: serverTimestamp() as Timestamp,
     score: 0,
     isReady: true,
@@ -98,9 +103,12 @@ export const createRoom = async (playerName: string): Promise<{ roomId: string; 
 };
 
 // Join an existing room
-export const joinRoom = async (code: string, playerName: string): Promise<string> => {
+export const joinRoom = async (code: string): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
+
+  const userData = getCurrentUserData();
+  if (!userData) throw new Error('User data not available');
 
   // Find room by code
   const roomsRef = collection(db, 'rooms');
@@ -133,10 +141,11 @@ export const joinRoom = async (code: string, playerName: string): Promise<string
     playerOrder: [...roomData.playerOrder, userId],
   });
 
-  // Create player doc
+  // Create player doc with Google data
   const playerRef = doc(db, 'rooms', roomId, 'players', userId);
   const playerData: Omit<Player, 'id'> = {
-    name: playerName,
+    name: userData.name,
+    photoURL: userData.photoURL || undefined,
     joinedAt: serverTimestamp() as Timestamp,
     score: 0,
     isReady: false,
@@ -726,9 +735,12 @@ export interface ChatMessage {
 }
 
 // Send a chat message
-export const sendChatMessage = async (roomId: string, text: string, playerName: string): Promise<void> => {
+export const sendChatMessage = async (roomId: string, text: string): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
+
+  const userData = getCurrentUserData();
+  if (!userData) throw new Error('User data not available');
 
   if (!text.trim()) {
     throw new Error('Mensagem não pode estar vazia');
@@ -737,7 +749,7 @@ export const sendChatMessage = async (roomId: string, text: string, playerName: 
   const chatRef = doc(collection(db, 'rooms', roomId, 'chat'));
   await setDoc(chatRef, {
     uid: userId,
-    name: playerName,
+    name: userData.name,
     text: text.trim(),
     createdAt: serverTimestamp() as Timestamp,
   });
