@@ -15,7 +15,7 @@ export function Chat({ roomId, className = '' }: ChatProps) {
   const [sending, setSending] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { userId, playerName } = useAppStore();
+  const { userId } = useAppStore();
 
   useEffect(() => {
     const unsubscribe = subscribeToChat(roomId, setMessages);
