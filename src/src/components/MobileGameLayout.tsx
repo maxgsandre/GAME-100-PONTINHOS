@@ -244,7 +244,7 @@ export function MobileGameLayout({
 
         {/* Left Player - Movido para espaço vazio acima (retângulo amarelo) - mantendo formato vertical */}
         {leftPlayer && (
-          <div className="absolute top-0 left-0 flex flex-col items-start gap-1 z-10 pl-1 pt-1">
+          <div className="absolute top-0 left-0 flex flex-col items-start gap-1 z-10 pl-1 pt-3">
             <OpponentHand count={leftPlayer.handCount || 9} position="left" />
             <div className="ml-1">
               <PlayerAvatar player={leftPlayer} position="left" />
@@ -254,7 +254,7 @@ export function MobileGameLayout({
 
         {/* Right Player - Movido para espaço vazio acima (canto superior direito) - mantendo formato vertical */}
         {rightPlayer && (
-          <div className="absolute right-0 top-0 flex flex-col items-end gap-1 z-10 pr-1 pt-1">
+          <div className="absolute right-0 top-0 flex flex-col items-end gap-1 z-10 pr-1 pt-3">
             <OpponentHand count={rightPlayer.handCount || 9} position="right" />
             <div className="mr-1">
               <PlayerAvatar player={rightPlayer} position="right" />
