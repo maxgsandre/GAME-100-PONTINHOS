@@ -4,7 +4,7 @@ interface CardComponentProps {
   card: Card;
   selected?: boolean;
   onClick?: () => void;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'tiny' | 'small' | 'medium' | 'large';
   disabled?: boolean;
 }
 
@@ -13,6 +13,7 @@ export function CardComponent({ card, selected, onClick, size = 'medium', disabl
   const color = getCardColor(card);
 
   const sizeClasses = {
+    tiny: 'w-8 h-11 text-[10px]',
     small: 'w-12 h-16 text-xs',
     medium: 'w-16 h-24 text-base',
     large: 'w-20 h-28 text-lg',
