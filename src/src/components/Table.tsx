@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Chat } from './Chat';
 import { MobileGameLayout } from './MobileGameLayout';
 import {
   Room,
@@ -253,8 +252,6 @@ export function Table({ room }: TableProps) {
       </div>
     );
   }
-
-  const currentPlayer = players.find(p => p.id === room.playerOrder[room.turnIndex]);
 
   // Prepare players data for mobile layout with positions
   // Determine positions: current user is always bottom, others are distributed
