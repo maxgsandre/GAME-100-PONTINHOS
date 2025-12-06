@@ -275,15 +275,16 @@ export function MobileGameLayout({
           </div>
         </div>
 
-        {/* Bottom Player (You) - Botões acima do avatar, avatar na frente, leque colado embaixo */}
+        {/* Bottom Player (You) - Botões um de cada lado do avatar, leque colado embaixo */}
         {bottomPlayer && (
           <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10 pb-1">
-            {/* Action Buttons - Above player avatar (not too close) */}
-            <div className="flex gap-3 mb-3">
+            {/* Action Buttons e Avatar - Botões nas laterais, avatar no centro */}
+            <div className="flex items-center gap-3 mb-1">
+              {/* Botão Descartar - Esquerda */}
               <button
                 onClick={() => handleAction('discard')}
                 disabled={actions[0].disabled}
-                className={`px-6 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
                   actions[0].disabled
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -291,10 +292,17 @@ export function MobileGameLayout({
               >
                 Descartar
               </button>
+              
+              {/* Player Avatar - Centro */}
+              <div>
+                <PlayerAvatar player={bottomPlayer} position="bottom" />
+              </div>
+              
+              {/* Botão Bater! - Direita */}
               <button
                 onClick={() => handleAction('knock')}
                 disabled={actions[1].disabled}
-                className={`px-6 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
                   actions[1].disabled
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-red-600 text-white hover:bg-red-700'
@@ -302,11 +310,6 @@ export function MobileGameLayout({
               >
                 Bater!
               </button>
-            </div>
-            
-            {/* Player Avatar - In front of hand */}
-            <div className="mb-1">
-              <PlayerAvatar player={bottomPlayer} position="bottom" />
             </div>
             
             {/* Player Hand - Leque colado embaixo */}
