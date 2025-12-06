@@ -193,31 +193,31 @@ export function HandScroller({
             willChange: 'transform',
           }}
         >
-          <div className="relative w-16 h-24 rounded-md shadow-2xl">
-            <div className="absolute inset-0 bg-white rounded-md border-2 border-yellow-400">
-              <div className="absolute top-0.5 left-0.5 flex flex-col items-center">
-                <span className={`text-xs font-bold leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
+          <div className="relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-2xl">
+            <div className="absolute inset-0 bg-white rounded-md md:rounded-lg border-2 border-yellow-400">
+              <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
+                <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
                   {draggedCardData.rank === 'T' ? '10' : draggedCardData.rank}
                 </span>
-                <span className={`text-sm leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
+                <span className={`text-sm md:text-base lg:text-lg leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
                   {SUIT_SYMBOLS[draggedCardData.suit]}
                 </span>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="flex flex-col items-center">
-                  <span className={`text-2xl ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
+                  <span className={`text-2xl md:text-3xl lg:text-4xl ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
                     {SUIT_SYMBOLS[draggedCardData.suit]}
                   </span>
-                  <span className={`text-lg font-bold ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
+                  <span className={`text-lg md:text-xl lg:text-2xl font-bold ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
                     {draggedCardData.rank === 'T' ? '10' : draggedCardData.rank}
                   </span>
                 </div>
               </div>
-              <div className="absolute bottom-0.5 right-0.5 flex flex-col items-center rotate-180">
-                <span className={`text-xs font-bold leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
+              <div className="absolute bottom-0.5 right-0.5 md:bottom-1 md:right-1 flex flex-col items-center rotate-180">
+                <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
                   {draggedCardData.rank === 'T' ? '10' : draggedCardData.rank}
                 </span>
-                <span className={`text-sm leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
+                <span className={`text-sm md:text-base lg:text-lg leading-none ${SUIT_COLORS[draggedCardData.suit] === 'red' ? 'text-red-600' : 'text-gray-900'}`}>
                   {SUIT_SYMBOLS[draggedCardData.suit]}
                 </span>
               </div>
@@ -257,7 +257,7 @@ export function HandScroller({
             style={{
               touchAction: onReorder ? 'none' : 'auto', // Prevenir gestos padrão do touch quando pode reordenar
             }}
-            className={`relative w-16 h-24 rounded-md shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
+            className={`relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
               isSelected ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-emerald-900' : ''
             } ${!selectable ? 'opacity-50 cursor-not-allowed' : ''} ${
               isDragging ? 'opacity-50 scale-95' : ''
@@ -265,20 +265,20 @@ export function HandScroller({
               selectable && onReorder ? 'cursor-move' : ''
             }`}
           >
-            <div className="absolute inset-0 bg-white rounded-md border border-gray-300">
-              <div className="absolute top-0.5 left-0.5 flex flex-col items-center">
-                <span className={`text-xs font-bold leading-none ${color}`}>{rankDisplay}</span>
-                <span className={`text-sm leading-none ${color}`}>{suitSymbol}</span>
+            <div className="absolute inset-0 bg-white rounded-md md:rounded-lg border border-gray-300">
+              <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
+                <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+                <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="flex flex-col items-center">
-                  <span className={`text-2xl ${color}`}>{suitSymbol}</span>
-                  <span className={`text-lg font-bold ${color}`}>{rankDisplay}</span>
+                  <span className={`text-2xl md:text-3xl lg:text-4xl ${color}`}>{suitSymbol}</span>
+                  <span className={`text-lg md:text-xl lg:text-2xl font-bold ${color}`}>{rankDisplay}</span>
                 </div>
               </div>
-              <div className="absolute bottom-0.5 right-0.5 flex flex-col items-center rotate-180">
-                <span className={`text-xs font-bold leading-none ${color}`}>{rankDisplay}</span>
-                <span className={`text-sm leading-none ${color}`}>{suitSymbol}</span>
+              <div className="absolute bottom-0.5 right-0.5 md:bottom-1 md:right-1 flex flex-col items-center rotate-180">
+                <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+                <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
               </div>
             </div>
           </div>
