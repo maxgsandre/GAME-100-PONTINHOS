@@ -1,15 +1,20 @@
 import { Card } from '../lib/deck';
-import { ActionFab } from './ActionFab';
-import { ScoreboardCard } from './ScoreboardCard';
 import { DeckArea } from './DeckArea';
 import { HandScroller } from './HandScroller';
 import { MeldDoc } from '../lib/firestoreGame';
-import { getCardDisplay } from '../lib/deck';
-import { calculateHandPoints } from '../lib/rules';
 import { GameRules } from '../lib/rules';
 import { LogOut } from 'lucide-react';
 
-type Player = { name: string; score: number; isYou?: boolean; isTurn?: boolean };
+type Player = { 
+  id: string;
+  name: string; 
+  score: number; 
+  photoURL?: string;
+  handCount?: number;
+  isYou?: boolean; 
+  isTurn?: boolean;
+  position?: 'top' | 'bottom' | 'left' | 'right';
+};
 
 interface MobileGameLayoutProps {
   round: number;
@@ -34,6 +39,97 @@ interface MobileGameLayoutProps {
   onLeaveRoom?: () => void;
 }
 
+// Component for opponent hand (fanned cards facing center)
+function OpponentHand({ count, position }: { count: number; position: 'top' | 'bottom' | 'left' | 'right' }) {
+  const cards = Array.from({ length: Math.min(count, 9) }, (_, i) => i);
+  
+  if (position === 'top' || position === 'bottom') {
+    return (
+      <div className={`flex justify-center items-center ${position === 'top' ? '' : ''}`}>
+        {cards.map((_, i) => (
+          <div
+            key={i}
+            className="w-8 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm border-2 border-blue-400 shadow-lg"
+            style={{
+              transform: `rotate(${(i - cards.length / 2) * 4}deg) translateY(${position === 'top' ? '0' : '0'})`,
+              marginLeft: i === 0 ? 0 : '-10px',
+              zIndex: cards.length - i,
+            }}
+          />
+        ))}
+      </div>
+    );
+  } else {
+    return (
+      <div className={`flex flex-col justify-center items-center ${position === 'left' ? '' : ''}`}>
+        {cards.map((_, i) => (
+          <div
+            key={i}
+            className="w-12 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm border-2 border-blue-400 shadow-lg"
+            style={{
+              transform: `rotate(${(i - cards.length / 2) * -4}deg)`,
+              marginTop: i === 0 ? 0 : '-10px',
+              zIndex: cards.length - i,
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+}
+
+// Component for player avatar with score
+function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 'bottom' | 'left' | 'right' }) {
+  const isVertical = position === 'left' || position === 'right';
+  const isTurn = player.isTurn;
+  
+  if (isVertical) {
+    return (
+      <div className={`flex ${position === 'left' ? 'flex-row items-center gap-2' : 'flex-row-reverse items-center gap-2'}`}>
+        {player.photoURL ? (
+          <img
+            src={player.photoURL}
+            alt={player.name}
+            className={`w-10 h-10 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
+          />
+        ) : (
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
+            {player.name[0].toUpperCase()}
+          </div>
+        )}
+        <div className={`flex flex-col ${position === 'left' ? 'items-start' : 'items-end'}`}>
+          <span className={`text-xs font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
+            {player.name}
+          </span>
+          <span className="text-[10px] text-gray-300">{player.score} pts</span>
+        </div>
+      </div>
+    );
+  } else {
+    return (
+      <div className={`flex ${position === 'top' ? 'flex-col items-center gap-1' : 'flex-col-reverse items-center gap-1'}`}>
+        {player.photoURL ? (
+          <img
+            src={player.photoURL}
+            alt={player.name}
+            className={`w-10 h-10 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
+          />
+        ) : (
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
+            {player.name[0].toUpperCase()}
+          </div>
+        )}
+        <div className="flex flex-col items-center">
+          <span className={`text-xs font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
+            {player.name}
+          </span>
+          <span className="text-[10px] text-gray-300">{player.score} pts</span>
+        </div>
+      </div>
+    );
+  }
+}
+
 export function MobileGameLayout({
   round,
   lastAction,
@@ -42,31 +138,28 @@ export function MobileGameLayout({
   stockCount,
   hand,
   selectedCards,
-  melds,
-  playerNames,
   canPlay,
   hasDrawn,
-  rules,
   onBuyStock,
   onBuyDiscard,
   onCardSelect,
   onDiscard,
-  onMeld,
   onKnock,
   onReorderHand,
   onLeaveRoom,
 }: MobileGameLayoutProps) {
+  // Separate players by position
+  const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
+  const bottomPlayer = players.find(p => (p.position === 'bottom' || p.isYou));
+  const leftPlayer = players.find(p => p.position === 'left' && !p.isYou);
+  const rightPlayer = players.find(p => p.position === 'right' && !p.isYou);
+
   const actions = [
     {
       id: 'discard',
       label: `Descartar${selectedCards.length > 0 ? ` (${selectedCards.length}/1)` : ' (0/1)'}`,
       type: 'primary' as const,
       disabled: !canPlay || !hasDrawn || selectedCards.length !== 1,
-    },
-    {
-      id: 'meld',
-      label: `Baixar Combinação${selectedCards.length >= 3 ? ` (${selectedCards.length})` : ' (0)'}`,
-      disabled: !canPlay || selectedCards.length < 3,
     },
     {
       id: 'knock',
@@ -79,15 +172,14 @@ export function MobileGameLayout({
   const handleAction = (id: string) => {
     if (id === 'discard') {
       onDiscard();
-    } else if (id === 'meld') {
-      onMeld();
     } else if (id === 'knock') {
       onKnock();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 flex flex-col overflow-hidden relative">
+      {/* Header */}
       <header className="bg-emerald-950/60 backdrop-blur border-b border-emerald-600/30 sticky top-0 z-50">
         <div className="px-3 py-2">
           <div className="flex items-center justify-between gap-2">
@@ -117,81 +209,98 @@ export function MobileGameLayout({
         </div>
       </header>
 
-      <main className="flex-1 px-3 py-3 space-y-3">
-        <ScoreboardCard players={players} />
-
-        <div className="grid grid-cols-2 gap-3">
-          <DeckArea
-            stockCount={stockCount}
-            discardTop={discardTop}
-            canPlay={canPlay && !hasDrawn}
-            onBuyStock={onBuyStock}
-            onBuyDiscard={onBuyDiscard}
-          />
-        </div>
-
-        {melds.length > 0 && (
-          <div className="bg-emerald-900/40 backdrop-blur border-emerald-600/30 rounded-lg p-3">
-            <h3 className="text-sm font-bold text-white mb-2">Combinações Baixadas</h3>
-            <div className="space-y-2">
-              {melds.map((meld) => (
-                <div key={meld.id} className="border border-emerald-600/30 rounded-lg p-2 bg-emerald-800/20">
-                  <p className="text-xs text-emerald-200 mb-1">
-                    {playerNames[meld.ownerUid] || 'Jogador'} - {meld.type === 'sequence' ? 'Sequência' : 'Trinca'}
-                  </p>
-                  <div className="flex gap-1 flex-wrap">
-                    {meld.cards.map((card, index) => (
-                      <span
-                        key={`${card}-${index}`}
-                        className="text-xs px-2 py-1 bg-emerald-700/30 rounded text-white border border-emerald-500/30"
-                      >
-                        {getCardDisplay(card)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+      {/* Main Game Area */}
+      <div className="flex-1 relative flex items-center justify-center">
+        {/* Top Player - Leque colado no topo, avatar na frente */}
+        {topPlayer && (
+          <div className="absolute top-0 left-0 right-0 flex flex-col items-center z-10 pt-1">
+            <OpponentHand count={topPlayer.handCount || 9} position="top" />
+            <div className="mt-1">
+              <PlayerAvatar player={topPlayer} position="top" />
             </div>
           </div>
         )}
 
-        <div className="bg-emerald-900/40 backdrop-blur border-emerald-600/30 rounded-lg p-3 space-y-2">
-          <h3 className="text-sm font-bold text-white mb-2">Ações</h3>
-          <ActionFab
-            disabled={!canPlay}
-            actions={actions}
-            onAction={handleAction}
-          />
-          <p className="text-[10px] text-emerald-200 text-center">
-            {!hasDrawn && canPlay
-              ? '1. Compre uma carta (monte ou descarte)'
-              : hasDrawn && canPlay
-              ? '2. Baixe combinações ou descarte'
-              : 'Aguarde sua vez'}
-          </p>
-        </div>
-
-        <div className="bg-emerald-900/40 backdrop-blur border-emerald-600/30 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-white">
-              Sua Mão <span className="text-emerald-300">({hand.length})</span>
-            </h3>
-            <div>
-              <span className="text-xs text-emerald-300">Pontos: </span>
-              <span className="text-xl font-bold text-yellow-400">
-                {calculateHandPoints(hand, rules)}
-              </span>
+        {/* Left Player - Leque colado na esquerda, avatar acima do leque à esquerda */}
+        {leftPlayer && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-start gap-1 z-10 pl-1">
+            <OpponentHand count={leftPlayer.handCount || 9} position="left" />
+            <div className="ml-1">
+              <PlayerAvatar player={leftPlayer} position="left" />
             </div>
           </div>
-          <HandScroller
-            cards={hand}
-            selectedCards={selectedCards}
-            onCardSelect={onCardSelect}
-            selectable={canPlay}
-            onReorder={onReorderHand}
-          />
+        )}
+
+        {/* Right Player - Leque colado na direita, avatar acima do leque à direita */}
+        {rightPlayer && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-end gap-1 z-10 pr-1">
+            <OpponentHand count={rightPlayer.handCount || 9} position="right" />
+            <div className="mr-1">
+              <PlayerAvatar player={rightPlayer} position="right" />
+            </div>
+          </div>
+        )}
+
+        {/* Center Area - Deck and Discard */}
+        <div className="flex flex-col items-center gap-4 z-20">
+          <div className="grid grid-cols-2 gap-4">
+            <DeckArea
+              stockCount={stockCount}
+              discardTop={discardTop}
+              canPlay={canPlay && !hasDrawn}
+              onBuyStock={onBuyStock}
+              onBuyDiscard={onBuyDiscard}
+            />
+          </div>
         </div>
-      </main>
+
+        {/* Bottom Player (You) - Botões acima do avatar, avatar na frente, leque colado embaixo */}
+        {bottomPlayer && (
+          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10 pb-1">
+            {/* Action Buttons - Above player avatar (not too close) */}
+            <div className="flex gap-3 mb-3">
+              <button
+                onClick={() => handleAction('discard')}
+                disabled={actions[0].disabled}
+                className={`px-6 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                  actions[0].disabled
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                Descartar
+              </button>
+              <button
+                onClick={() => handleAction('knock')}
+                disabled={actions[1].disabled}
+                className={`px-6 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                  actions[1].disabled
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                Bater!
+              </button>
+            </div>
+            
+            {/* Player Avatar - In front of hand */}
+            <div className="mb-1">
+              <PlayerAvatar player={bottomPlayer} position="bottom" />
+            </div>
+            
+            {/* Player Hand - Leque colado embaixo */}
+            <div className="w-full px-2">
+              <HandScroller
+                cards={hand}
+                selectedCards={selectedCards}
+                onCardSelect={onCardSelect}
+                selectable={canPlay}
+                onReorder={onReorderHand}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -262,16 +262,59 @@ export function Table({ room }: TableProps) {
 
   const currentPlayer = players.find(p => p.id === room.playerOrder[room.turnIndex]);
 
-  // Prepare players data for mobile layout
+  // Prepare players data for mobile layout with positions
+  // Determine positions: current user is always bottom, others are distributed
+  const myIndex = room.playerOrder.findIndex(id => id === userId);
+  const totalPlayers = room.playerOrder.length;
+  
+  if (myIndex === -1) {
+    console.error('Current user not found in playerOrder');
+  }
+  
   const playersForMobile = room.playerOrder.map((playerId, index) => {
     const player = players.find(p => p.id === playerId);
+    const isYou = playerId === userId;
+    
+    // Determine position based on player order relative to current user
+    let position: 'top' | 'bottom' | 'left' | 'right' = 'bottom';
+    if (isYou) {
+      position = 'bottom';
+    } else {
+      const relativeIndex = (index - myIndex + totalPlayers) % totalPlayers;
+      // Skip relativeIndex 0 (that's the current user)
+      if (relativeIndex === 0) {
+        position = 'bottom'; // Fallback, should not happen
+      } else if (totalPlayers === 2) {
+        // With 2 players: opponent goes to top
+        position = 'top';
+      } else if (totalPlayers === 3) {
+        // With 3 players: distribute to top and left
+        if (relativeIndex === 1) position = 'top';
+        else if (relativeIndex === 2) position = 'left';
+      } else if (totalPlayers === 4) {
+        // With 4 players: distribute to top, left, and right
+        if (relativeIndex === 1) position = 'top';
+        else if (relativeIndex === 2) position = 'left';
+        else if (relativeIndex === 3) position = 'right';
+      }
+    }
+    
     return {
+      id: playerId,
       name: player?.name || 'Jogador',
       score: player?.score || 0,
-      isYou: playerId === userId,
+      photoURL: player?.photoURL,
+      handCount: isYou ? hand?.cards.length : 9, // For opponents, show default count (we don't have access to their hands)
+      isYou,
       isTurn: index === room.turnIndex,
+      position,
     };
   });
+  
+  // Debug: log player positions
+  if (totalPlayers === 4) {
+    console.log('🔍 4 Players - Positions:', playersForMobile.map(p => `${p.name} (${p.position})`));
+  }
 
   const playerNamesMap = players.reduce((acc, player) => {
     acc[player.id] = player.name;
