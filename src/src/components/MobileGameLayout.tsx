@@ -88,7 +88,7 @@ function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 
   
   if (isVertical) {
     return (
-      <div className={`flex ${position === 'left' ? 'flex-row items-center gap-2' : 'flex-row-reverse items-center gap-2'}`}>
+      <div className={`flex flex-col items-center gap-1`}>
         {player.photoURL ? (
           <img
             src={player.photoURL}
@@ -100,7 +100,7 @@ function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 
             {player.name[0].toUpperCase()}
           </div>
         )}
-        <div className={`flex flex-col ${position === 'left' ? 'items-start' : 'items-end'}`}>
+        <div className="flex flex-col items-center">
           <span className={`text-xs font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
             {player.name}
           </span>
