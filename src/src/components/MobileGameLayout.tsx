@@ -6,6 +6,7 @@ import { GameRules } from '../lib/rules';
 import { LogOut, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { Chat } from './Chat';
+import { MeldsArea } from './MeldsArea';
 
 type Player = { 
   id: string;
@@ -40,6 +41,7 @@ interface MobileGameLayoutProps {
   onKnock: () => void;
   onReorderHand?: (newOrder: Card[]) => void;
   onLeaveRoom?: () => void;
+  onAddCardToMeld?: (meldId: string, card: Card) => void;
 }
 
 // Component for opponent hand (fanned cards facing center)
@@ -141,6 +143,7 @@ export function MobileGameLayout({
   stockCount,
   hand,
   selectedCards,
+  melds,
   canPlay,
   hasDrawn,
   roomId,
@@ -151,6 +154,7 @@ export function MobileGameLayout({
   onKnock,
   onReorderHand,
   onLeaveRoom,
+  onAddCardToMeld,
 }: MobileGameLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
@@ -275,6 +279,14 @@ export function MobileGameLayout({
           </div>
         </div>
 
+        {/* Melds Area - Área central para combinações baixadas */}
+        <MeldsArea
+          melds={melds}
+          players={players}
+          isMyTurn={canPlay}
+          onAddCardToMeld={onAddCardToMeld}
+        />
+
         {/* Bottom Player (You) - Botões um de cada lado do avatar, leque colado embaixo */}
         {bottomPlayer && (
           <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10 pb-1">
@@ -320,6 +332,7 @@ export function MobileGameLayout({
                 onCardSelect={onCardSelect}
                 selectable={canPlay}
                 onReorder={onReorderHand}
+                allowDragOut={canPlay && melds.length > 0}
               />
             </div>
           </div>
