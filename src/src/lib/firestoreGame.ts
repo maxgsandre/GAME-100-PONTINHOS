@@ -28,6 +28,7 @@ export interface Room {
   rules: GameRules;
   lastAction?: string;
   winnerId?: string; // Winner of current round
+  firstPassComplete?: boolean; // True when all players have played at least once in current round
 }
 
 export interface Player {
@@ -191,13 +192,18 @@ export const startGame = async (roomId: string): Promise<void> => {
     const firstDiscard = stock.pop()!;
     const discard = [firstDiscard];
 
+    // Determine if this is a new round (increment round) or first game (round 1)
+    const currentRound = roomData.round || 0;
+    const newRound = currentRound + 1;
+
     // Update room
     transaction.update(roomRef, {
       status: 'playing',
-      round: 1,
+      round: newRound,
       turnIndex: 0,
       discardTop: firstDiscard,
       lastAction: 'Jogo iniciado',
+      firstPassComplete: false, // First pass not complete yet - reset for new round
     });
 
     // Create hands
@@ -372,11 +378,16 @@ export const discardCard = async (roomId: string, card: Card): Promise<void> => 
 
     // Move to next player
     const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+    
+    // Check if first pass is complete (all players have played once)
+    // When nextTurnIndex becomes 0, it means we've completed a full cycle
+    const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
 
     transaction.update(roomRef, {
       discardTop: card,
       turnIndex: nextTurnIndex,
       lastAction: 'Descartou uma carta',
+      firstPassComplete: firstPassComplete,
     });
   });
 };
@@ -397,9 +408,9 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
       throw new Error('Não é seu turno');
     }
 
-    // Block laying down melds in first round
-    if (roomData.round === 1) {
-      throw new Error('Não é permitido baixar combinações na primeira rodada');
+    // Block laying down melds until all players have played at least once in current round
+    if (!roomData.firstPassComplete) {
+      throw new Error('Não é permitido baixar combinações na primeira vez de cada jogador na rodada');
     }
 
     // Verify player has all cards

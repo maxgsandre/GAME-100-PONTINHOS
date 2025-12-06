@@ -115,9 +115,9 @@ export function Table({ room }: TableProps) {
   const handleLayDownMelds = async () => {
     if (!isMyTurn || selectedCards.length < 3 || actionInProgress) return;
 
-    // Block laying down melds in first round
-    if (room.round === 1) {
-      alert('Não é permitido baixar combinações na primeira rodada');
+    // Block laying down melds until all players have played at least once
+    if (!room.firstPassComplete) {
+      alert('Não é permitido baixar combinações na primeira vez de cada jogador na rodada');
       return;
     }
 
