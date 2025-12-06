@@ -54,7 +54,7 @@ function OpponentHand({ count, position }: { count: number; position: 'top' | 'b
         {cards.map((_, i) => (
           <div
             key={i}
-            className="w-8 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm border-2 border-blue-400 shadow-lg"
+            className="w-8 h-12 md:w-12 md:h-18 lg:w-14 lg:h-20 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm border-2 border-blue-400 shadow-lg"
             style={{
               transform: `rotate(${(i - cards.length / 2) * 4}deg) translateY(${position === 'top' ? '0' : '0'})`,
               marginLeft: i === 0 ? 0 : '-10px',
@@ -70,7 +70,7 @@ function OpponentHand({ count, position }: { count: number; position: 'top' | 'b
         {cards.map((_, i) => (
           <div
             key={i}
-            className="w-12 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm border-2 border-blue-400 shadow-lg"
+            className="w-12 h-8 md:w-18 md:h-12 lg:w-20 lg:h-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded-sm border-2 border-blue-400 shadow-lg"
             style={{
               transform: `rotate(${(i - cards.length / 2) * -4}deg)`,
               marginTop: i === 0 ? 0 : '-10px',
@@ -95,18 +95,18 @@ function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 
           <img
             src={player.photoURL}
             alt={player.name}
-            className={`w-10 h-10 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
+            className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
           />
         ) : (
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
+          <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
             {player.name[0].toUpperCase()}
           </div>
         )}
         <div className="flex flex-col items-center">
-          <span className={`text-xs font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
+          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
             {player.name}
           </span>
-          <span className="text-[10px] text-gray-300">{player.score} pts</span>
+          <span className="text-[10px] md:text-xs lg:text-sm text-gray-300">{player.score} pts</span>
         </div>
       </div>
     );
@@ -117,18 +117,18 @@ function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 
           <img
             src={player.photoURL}
             alt={player.name}
-            className={`w-10 h-10 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
+            className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
           />
         ) : (
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
+          <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
             {player.name[0].toUpperCase()}
           </div>
         )}
         <div className="flex flex-col items-center">
-          <span className={`text-xs font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
+          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
             {player.name}
           </span>
-          <span className="text-[10px] text-gray-300">{player.score} pts</span>
+          <span className="text-[10px] md:text-xs lg:text-sm text-gray-300">{player.score} pts</span>
         </div>
       </div>
     );
@@ -192,41 +192,41 @@ export function MobileGameLayout({
     <div className="min-h-screen bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 flex flex-col overflow-hidden relative">
       {/* Header */}
       <header className="bg-emerald-950/60 backdrop-blur border-b border-emerald-600/30 sticky top-0 z-50">
-        <div className="px-3 py-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white">Rodada {round}</h1>
+        <div className="px-3 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4">
+          <div className="flex items-center justify-between gap-2 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-3">
+              <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-white">Rodada {round}</h1>
               {canPlay && (
-                <span className="bg-green-500 text-white text-[10px] px-1.5 py-0 rounded">Sua vez!</span>
+                <span className="bg-green-500 text-white text-[10px] md:text-xs lg:text-sm px-1.5 md:px-2 lg:px-3 py-0 md:py-0.5 rounded">Sua vez!</span>
               )}
               {/* Chat Button */}
               <button
                 onClick={() => setChatOpen(true)}
-                className="relative p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors"
+                className="relative p-1.5 md:p-2 lg:p-2.5 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors"
                 aria-label="Abrir chat"
                 title="Abrir chat"
               >
-                <MessageSquare size={18} />
+                <MessageSquare size={18} className="md:w-5 md:h-5 lg:w-6 lg:h-6" />
                 {messageCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] md:text-xs rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center">
                     {messageCount}
                   </span>
                 )}
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
               <div className="text-right">
-                <p className="text-[10px] text-emerald-300">Última ação</p>
-                <p className="text-xs text-white font-medium">{lastAction || 'Jogo iniciado'}</p>
+                <p className="text-[10px] md:text-xs lg:text-sm text-emerald-300">Última ação</p>
+                <p className="text-xs md:text-sm lg:text-base text-white font-medium">{lastAction || 'Jogo iniciado'}</p>
               </div>
               {onLeaveRoom && (
                 <button
                   onClick={onLeaveRoom}
-                  className="p-1.5 text-emerald-300/70 hover:text-white hover:bg-emerald-800/50 rounded transition-colors"
+                  className="p-1.5 md:p-2 lg:p-2.5 text-emerald-300/70 hover:text-white hover:bg-emerald-800/50 rounded transition-colors"
                   aria-label="Sair da partida"
                   title="Sair da partida"
                 >
-                  <LogOut size={16} />
+                  <LogOut size={16} className="md:w-5 md:h-5 lg:w-6 lg:h-6" />
                 </button>
               )}
             </div>
@@ -238,9 +238,9 @@ export function MobileGameLayout({
       <div className="flex-1 relative flex items-center justify-center">
         {/* Top Player - Leque colado no topo, avatar na frente */}
         {topPlayer && (
-          <div className="absolute top-0 left-0 right-0 flex flex-col items-center z-10 pt-1">
+          <div className="absolute top-0 left-0 right-0 flex flex-col items-center z-10 pt-1 md:pt-2 lg:pt-3">
             <OpponentHand count={topPlayer.handCount || 9} position="top" />
-            <div className="mt-1">
+            <div className="mt-1 md:mt-2 lg:mt-3">
               <PlayerAvatar player={topPlayer} position="top" />
             </div>
           </div>
@@ -248,9 +248,9 @@ export function MobileGameLayout({
 
         {/* Left Player - Movido para espaço vazio acima (retângulo amarelo) - mantendo formato vertical */}
         {leftPlayer && (
-          <div className="absolute top-0 left-0 flex flex-col items-start z-10 pl-1 pt-3">
+          <div className="absolute top-0 left-0 flex flex-col items-start z-10 pl-1 md:pl-2 lg:pl-4 pt-3 md:pt-4 lg:pt-6">
             <OpponentHand count={leftPlayer.handCount || 9} position="left" />
-            <div className="ml-1 mt-2">
+            <div className="ml-1 md:ml-2 lg:ml-3 mt-2 md:mt-3 lg:mt-4">
               <PlayerAvatar player={leftPlayer} position="left" />
             </div>
           </div>
@@ -258,17 +258,17 @@ export function MobileGameLayout({
 
         {/* Right Player - Movido para espaço vazio acima (canto superior direito) - mantendo formato vertical */}
         {rightPlayer && (
-          <div className="absolute right-0 top-0 flex flex-col items-end z-10 pr-1 pt-3">
+          <div className="absolute right-0 top-0 flex flex-col items-end z-10 pr-1 md:pr-2 lg:pr-4 pt-3 md:pt-4 lg:pt-6">
             <OpponentHand count={rightPlayer.handCount || 9} position="right" />
-            <div className="mr-1 mt-2">
+            <div className="mr-1 md:mr-2 lg:mr-3 mt-2 md:mt-3 lg:mt-4">
               <PlayerAvatar player={rightPlayer} position="right" />
             </div>
           </div>
         )}
 
         {/* Center Area - Deck and Discard - Posicionado abaixo do jogador do topo, entre os jogadores laterais */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-20 pt-36">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 md:gap-6 lg:gap-8 z-20 pt-36 md:pt-44 lg:pt-52">
+          <div className="grid grid-cols-2 gap-4 md:gap-6 lg:gap-8">
             <DeckArea
               stockCount={stockCount}
               discardTop={discardTop}
@@ -291,12 +291,12 @@ export function MobileGameLayout({
         {bottomPlayer && (
           <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10 pb-1">
             {/* Action Buttons e Avatar - Botões nas laterais, avatar no centro */}
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-3 md:gap-4 lg:gap-6 mb-1 md:mb-2 lg:mb-3">
               {/* Botão Descartar - Esquerda */}
               <button
                 onClick={() => handleAction('discard')}
                 disabled={actions[0].disabled}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                className={`px-4 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 rounded-lg font-semibold text-sm md:text-base lg:text-lg transition-colors ${
                   actions[0].disabled
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -314,7 +314,7 @@ export function MobileGameLayout({
               <button
                 onClick={() => handleAction('knock')}
                 disabled={actions[1].disabled}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                className={`px-4 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 rounded-lg font-semibold text-sm md:text-base lg:text-lg transition-colors ${
                   actions[1].disabled
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-red-600 text-white hover:bg-red-700'
