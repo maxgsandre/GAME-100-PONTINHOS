@@ -15,13 +15,14 @@ import {
   discardCard,
   layDownMelds,
   goOut,
+  attemptGoOut,
   reorderHand,
   leaveRoom,
   addCardToMeld,
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
-import { isValidMeld, Meld, validateMultipleMelds, findAllMelds } from '../lib/rules';
+import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios } from '../lib/rules';
 import { useNavigate } from 'react-router-dom';
 
 interface TableProps {
@@ -161,15 +162,67 @@ export function Table({ room }: TableProps) {
   };
 
   const handleGoOut = async () => {
-    if (!isMyTurn || !hand || actionInProgress) return;
+    if (!hand || actionInProgress) return;
 
-    // Need at least 4 cards: 3 for a meld + 1 to discard
-    if (hand.cards.length < 4) {
-      alert('Você precisa ter pelo menos 4 cartas (3 para combinação + 1 para descartar)');
+    const currentPlayer = players.find(p => p.id === userId);
+    const isBlocked = currentPlayer?.isBlocked || false;
+
+    // If not player's turn and they're blocked, don't allow
+    if (!isMyTurn && isBlocked) {
+      alert('Você está bloqueado. Só pode bater na sua vez.');
       return;
     }
 
-    // Player selects all cards except one to discard
+    // If not player's turn, try special scenarios
+    if (!isMyTurn) {
+      // Check if player can go out with special scenarios
+      const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop, melds);
+      if (!scenarioCheck.canGoOut || !scenarioCheck.scenario) {
+        alert(scenarioCheck.error || 'Não é possível bater com essas cartas fora da sua vez');
+        return;
+      }
+
+      try {
+        setActionInProgress(true);
+        const result = await attemptGoOut(room.id, scenarioCheck.scenario, melds);
+        if (result.success) {
+          setSelectedCards([]);
+        } else {
+          alert(result.error || 'Não foi possível bater. Você foi bloqueado.');
+        }
+      } catch (error: any) {
+        alert(error.message || 'Erro ao tentar bater');
+      } finally {
+        setActionInProgress(false);
+      }
+      return;
+    }
+
+    // Normal turn - player's turn
+    // Need at least 4 cards: 3 for a meld + 1 to discard (or special scenarios)
+    if (hand.cards.length < 2) {
+      alert('Você precisa ter pelo menos 2 cartas');
+      return;
+    }
+
+    // Check special scenarios first (if player has 2 or 3 cards)
+    if (hand.cards.length === 2 || hand.cards.length === 3) {
+      const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop, melds);
+      if (scenarioCheck.canGoOut && scenarioCheck.scenario) {
+        try {
+          setActionInProgress(true);
+          await goOut(room.id, scenarioCheck.scenario.melds, scenarioCheck.scenario.discardCard || null, scenarioCheck.scenario);
+          setSelectedCards([]);
+        } catch (error: any) {
+          alert(error.message || 'Erro ao bater');
+        } finally {
+          setActionInProgress(false);
+        }
+        return;
+      }
+    }
+
+    // Normal scenario: Player selects all cards except one to discard
     if (selectedCards.length === 0) {
       alert('Selecione as cartas que formam suas combinações e deixe UMA carta para descartar');
       return;
@@ -299,6 +352,7 @@ export function Table({ room }: TableProps) {
       isYou,
       isTurn: index === room.turnIndex,
       position,
+      isBlocked: player?.isBlocked || false,
     };
   });
   
