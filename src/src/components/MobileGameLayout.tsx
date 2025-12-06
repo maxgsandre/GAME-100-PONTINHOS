@@ -262,8 +262,8 @@ export function MobileGameLayout({
           </div>
         )}
 
-        {/* Center Area - Deck and Discard */}
-        <div className="flex flex-col items-center gap-4 z-20">
+        {/* Center Area - Deck and Discard - Posicionado abaixo do jogador do topo, entre os jogadores laterais */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-20 pt-36">
           <div className="grid grid-cols-2 gap-4">
             <DeckArea
               stockCount={stockCount}
