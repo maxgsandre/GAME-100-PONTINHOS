@@ -13,10 +13,10 @@ export function CardComponent({ card, selected, onClick, size = 'medium', disabl
   const color = getCardColor(card);
 
   const sizeClasses = {
-    tiny: 'w-8 h-11 text-[10px]',
-    small: 'w-12 h-16 text-xs',
-    medium: 'w-16 h-24 text-base',
-    large: 'w-20 h-28 text-lg',
+    tiny: 'w-8 h-11 md:w-10 md:h-14 lg:w-12 lg:h-16 text-[10px] md:text-xs lg:text-sm',
+    small: 'w-12 h-16 md:w-16 md:h-20 lg:w-20 lg:h-28 text-xs md:text-sm lg:text-base',
+    medium: 'w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 text-base md:text-lg lg:text-xl',
+    large: 'w-20 h-28 md:w-24 md:h-36 lg:w-28 lg:h-40 text-lg md:text-xl lg:text-2xl',
   };
 
   return (
