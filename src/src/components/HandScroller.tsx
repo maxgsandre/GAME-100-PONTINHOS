@@ -9,12 +9,14 @@ export function HandScroller({
   onCardSelect,
   selectable,
   onReorder,
+  allowDragOut,
 }: {
   cards: Card[];
   selectedCards: Card[];
   onCardSelect: (card: Card) => void;
   selectable: boolean;
   onReorder?: (newOrder: Card[]) => void;
+  allowDragOut?: boolean;
 }) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -22,7 +24,7 @@ export function HandScroller({
   const touchStartPos = useRef<{ x: number; y: number; index: number } | null>(null);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    if (!onReorder) {
+    if (!onReorder && !allowDragOut) {
       e.preventDefault();
       return;
     }
@@ -31,6 +33,10 @@ export function HandScroller({
     setDragPosition({ x: e.clientX, y: e.clientY });
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index.toString());
+    // Adicionar dados da carta para permitir drop na área de combinações
+    if (allowDragOut && cards[index]) {
+      e.dataTransfer.setData('application/card', JSON.stringify(cards[index]));
+    }
     // Criar imagem customizada para o drag
     const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
     dragImage.style.opacity = '0.8';
