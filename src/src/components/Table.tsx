@@ -1,9 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Hand as HandComponent } from './Hand';
-import { Stock } from './Stock';
-import { Discard } from './Discard';
-import { Melds } from './Melds';
-import { Scoreboard } from './Scoreboard';
 import { Chat } from './Chat';
 import { MobileGameLayout } from './MobileGameLayout';
 import {
@@ -27,8 +22,7 @@ import {
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
-import { isValidMeld, Meld, calculateHandPoints, validateMultipleMelds, findAllMelds } from '../lib/rules';
-import { ArrowDown } from 'lucide-react';
+import { isValidMeld, Meld, validateMultipleMelds, findAllMelds } from '../lib/rules';
 import { useNavigate } from 'react-router-dom';
 
 interface TableProps {
@@ -373,186 +367,31 @@ export function Table({ room }: TableProps) {
 
   return (
     <>
-      {/* Mobile Layout */}
-      <div className="md:hidden">
-        <MobileGameLayout
-          round={room.round}
-          lastAction={room.lastAction}
-          players={playersForMobile}
-          discardTop={room.discardTop}
-          stockCount={deckState.stock.length}
-          hand={hand.cards}
-          selectedCards={selectedCards}
-          melds={melds}
-          playerNames={playerNamesMap}
-          canPlay={isMyTurn && !actionInProgress}
-          hasDrawn={hasDrawn}
-          rules={room.rules}
-          roomId={room.id}
-          onBuyStock={handleDrawStock}
-          onBuyDiscard={handleDrawDiscard}
-          onCardSelect={handleCardSelect}
-          onDiscard={() => handleDiscard()}
-          onMeld={handleLayDownMelds}
-          onKnock={handleGoOut}
-          onReorderHand={handleReorderHand}
-          onLeaveRoom={handleLeaveRoom}
-          onAddCardToMeld={handleAddCardToMeld}
-        />
-      </div>
-
-      {/* Desktop Layout */}
-      <div className="hidden md:block min-h-screen bg-gradient-to-br from-green-600 to-blue-600 p-4">
-        <div className="max-w-6xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-gray-700">Rodada {room.round}</h2>
-              <p className="text-sm text-gray-600">
-                {isMyTurn ? '🟢 Sua vez!' : `Vez de ${currentPlayer?.name || 'outro jogador'}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Última ação:</p>
-                <p className="text-sm">{room.lastAction || 'Nenhuma'}</p>
-              </div>
-              <button
-                onClick={handleLeaveRoom}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                aria-label="Sair da partida"
-                title="Sair da partida"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Game Area */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Left: Scoreboard */}
-          <div>
-            <Scoreboard
-              players={players}
-              playerOrder={room.playerOrder}
-              currentTurnIndex={room.turnIndex}
-              currentUserId={userId}
-            />
-          </div>
-
-          {/* Center: Deck and Melds */}
-          <div className="space-y-4">
-            {/* Deck */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex justify-center gap-8 items-center">
-                <Stock
-                  count={deckState.stock.length}
-                  onDraw={handleDrawStock}
-                  disabled={!isMyTurn || hasDrawn || actionInProgress}
-                />
-                <Discard
-                  topCard={room.discardTop}
-                  onDraw={handleDrawDiscard}
-                  disabled={!isMyTurn || hasDrawn || actionInProgress}
-                />
-              </div>
-            </div>
-
-            {/* Melds */}
-            {melds.length > 0 && (
-              <Melds
-                melds={melds}
-                players={players}
-                hand={hand?.cards || []}
-                isMyTurn={isMyTurn}
-                onAddCardToMeld={handleAddCardToMeld}
-              />
-            )}
-          </div>
-
-          {/* Right: Actions */}
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <h3 className="mb-3 text-gray-700">Ações</h3>
-            <div className="space-y-2">
-              <button
-                onClick={handleDiscard}
-                disabled={!isMyTurn || !hasDrawn || selectedCards.length !== 1 || actionInProgress}
-                className={`
-                  w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2
-                  ${isMyTurn && hasDrawn && selectedCards.length === 1 && !actionInProgress
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }
-                `}
-              >
-                <ArrowDown size={16} />
-                Descartar ({selectedCards.length}/1)
-              </button>
-
-              <button
-                onClick={handleLayDownMelds}
-                disabled={!isMyTurn || selectedCards.length < 3 || actionInProgress}
-                className={`
-                  w-full py-2 px-4 rounded-lg
-                  ${isMyTurn && selectedCards.length >= 3 && !actionInProgress
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }
-                `}
-              >
-                Baixar Combinação ({selectedCards.length})
-              </button>
-
-              <button
-                onClick={handleGoOut}
-                disabled={!isMyTurn || hand.cards.length < 4 || actionInProgress}
-                className={`
-                  w-full py-2 px-4 rounded-lg
-                  ${isMyTurn && hand.cards.length >= 4 && !actionInProgress
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }
-                `}
-              >
-                Bater!
-              </button>
-
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-gray-600">
-                  {!hasDrawn && isMyTurn
-                    ? '1. Compre uma carta (monte ou descarte)'
-                    : hasDrawn && isMyTurn
-                    ? '2. Baixe combinações ou descarte'
-                    : 'Aguarde sua vez'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Hand */}
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-gray-700">Sua Mão ({hand.cards.length} cartas)</h3>
-            <p className="text-sm text-gray-600">
-              Pontos: {calculateHandPoints(hand.cards, room.rules)}
-            </p>
-          </div>
-          <HandComponent
-            cards={hand.cards}
-            onCardSelect={setSelectedCards}
-            selectable={isMyTurn}
-          />
-        </div>
-
-        {/* Chat */}
-        <Chat roomId={room.id} />
-        </div>
-      </div>
+      {/* Unified Layout - Mobile and Desktop */}
+      <MobileGameLayout
+        round={room.round}
+        lastAction={room.lastAction}
+        players={playersForMobile}
+        discardTop={room.discardTop}
+        stockCount={deckState.stock.length}
+        hand={hand.cards}
+        selectedCards={selectedCards}
+        melds={melds}
+        playerNames={playerNamesMap}
+        canPlay={isMyTurn && !actionInProgress}
+        hasDrawn={hasDrawn}
+        rules={room.rules}
+        roomId={room.id}
+        onBuyStock={handleDrawStock}
+        onBuyDiscard={handleDrawDiscard}
+        onCardSelect={handleCardSelect}
+        onDiscard={() => handleDiscard()}
+        onMeld={handleLayDownMelds}
+        onKnock={handleGoOut}
+        onReorderHand={handleReorderHand}
+        onLeaveRoom={handleLeaveRoom}
+        onAddCardToMeld={handleAddCardToMeld}
+      />
     </>
   );
 }
