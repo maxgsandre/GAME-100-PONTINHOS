@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Hand as HandComponent } from './Hand';
 import { Stock } from './Stock';
 import { Discard } from './Discard';
@@ -66,8 +66,32 @@ export function Table({ room }: TableProps) {
   useEffect(() => {
     if (isMyTurn) {
       setHasDrawn(false);
+      setSelectedCards([]); // Clear selection when turn changes
     }
   }, [room.turnIndex, isMyTurn]);
+
+  // Auto-select newly drawn card
+  const prevHand = useRef<Card[]>([]);
+  useEffect(() => {
+    if (!hand || !isMyTurn) {
+      prevHand.current = hand?.cards || [];
+      return;
+    }
+
+    const currentHand = hand.cards;
+    const prevHandCards = prevHand.current;
+
+    // If hand increased by 1 card and we just drew, find the new card
+    if (currentHand.length === prevHandCards.length + 1 && hasDrawn) {
+      // Find the card that's in current hand but not in previous hand
+      const newCard = currentHand.find(card => !prevHandCards.includes(card));
+      if (newCard && !selectedCards.includes(newCard)) {
+        setSelectedCards([newCard]);
+      }
+    }
+
+    prevHand.current = currentHand;
+  }, [hand?.cards, hasDrawn, isMyTurn, hand, selectedCards]);
 
   const handleDrawStock = async () => {
     if (!isMyTurn || hasDrawn || actionInProgress) return;
