@@ -306,3 +306,151 @@ export const canAddCardToMeld = (card: Card, meld: Meld): boolean => {
     return meldCards[0].rank === cardRank;
   }
 };
+
+// Check if player can go out with special scenarios (for going out out of turn)
+export interface GoOutScenario {
+  type: 'normal' | 'scenario1' | 'scenario2' | 'scenario3';
+  melds: Meld[];
+  discardCard?: Card; // Card to discard (undefined for scenario 1)
+  randomCard?: Card; // Random card that becomes discard (scenario 2)
+}
+
+export const canGoOutWithScenarios = (
+  hand: Card[],
+  discardTop: Card | null,
+  existingMelds: Meld[] = []
+): { canGoOut: boolean; scenario?: GoOutScenario; error?: string } => {
+  if (hand.length === 0) {
+    return { canGoOut: false, error: 'Mão vazia' };
+  }
+
+  // Scenario 1: 2 cards of same rank + discarded card forms set (no discard needed)
+  if (hand.length === 2 && discardTop) {
+    const handParsed = hand.map(parseCard);
+    const discardParsed = parseCard(discardTop);
+    
+    // Check if 2 hand cards have same rank
+    if (handParsed[0].rank === handParsed[1].rank) {
+      // Check if discard card has same rank (forms trinca)
+      if (discardParsed.rank === handParsed[0].rank) {
+        const setCards = [...hand, discardTop];
+        if (isValidSet(setCards)) {
+          return {
+            canGoOut: true,
+            scenario: {
+              type: 'scenario1',
+              melds: [{ type: 'set', cards: setCards }],
+            },
+          };
+        }
+      }
+    }
+  }
+
+  // Scenario 2: 2 cards of same rank + 1 random card + discarded card forms set (random becomes discard)
+  if (hand.length === 3 && discardTop) {
+    const handParsed = hand.map(parseCard);
+    const discardParsed = parseCard(discardTop);
+    
+    // Find 2 cards with same rank
+    for (let i = 0; i < handParsed.length; i++) {
+      for (let j = i + 1; j < handParsed.length; j++) {
+        if (handParsed[i].rank === handParsed[j].rank) {
+          // Check if discard has same rank
+          if (discardParsed.rank === handParsed[i].rank) {
+            // The third card (not i or j) becomes the discard
+            const randomCard = hand.find((_, idx) => idx !== i && idx !== j)!;
+            const setCards = [hand[i], hand[j], discardTop];
+            if (isValidSet(setCards)) {
+              return {
+                canGoOut: true,
+                scenario: {
+                  type: 'scenario2',
+                  melds: [{ type: 'set', cards: setCards }],
+                  discardCard: randomCard,
+                  randomCard,
+                },
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Scenario 3: 1 card in hand (all others in melds) - can only go out if drawn card completes a meld
+  // This scenario is handled differently - it requires the player to have drawn a card
+  // and that card can be added to an existing meld. This is checked in the attemptGoOut function.
+
+  // Normal scenario: Try to find valid melds for all cards except one
+  if (hand.length >= 4) {
+    // Try all combinations: select all cards except one, try to form melds
+    for (let discardIdx = 0; discardIdx < hand.length; discardIdx++) {
+      const discardCard = hand[discardIdx];
+      const cardsForMelds = hand.filter((_, idx) => idx !== discardIdx);
+      
+      // Try to find valid melds
+      const allPossibleMelds = findAllMelds(cardsForMelds);
+      
+      // Try to find a combination that uses all cards
+      const used = new Set<Card>();
+      const foundMelds: Meld[] = [];
+      
+      const sortedMelds = allPossibleMelds.sort((a, b) => b.cards.length - a.cards.length);
+      
+      for (const meld of sortedMelds) {
+        if (meld.cards.every(card => !used.has(card))) {
+          foundMelds.push(meld);
+          meld.cards.forEach(card => used.add(card));
+        }
+      }
+      
+      // Check if we used all cards
+      if (used.size === cardsForMelds.length) {
+        const validation = validateMultipleMelds(cardsForMelds, foundMelds);
+        if (validation.valid) {
+          return {
+            canGoOut: true,
+            scenario: {
+              type: 'normal',
+              melds: foundMelds,
+              discardCard,
+            },
+          };
+        }
+      }
+    }
+  }
+
+  // Also check if all cards can form melds (0 cards to discard - only valid in scenario 1, but check here too)
+  if (hand.length >= 3) {
+    const allPossibleMelds = findAllMelds(hand);
+    const used = new Set<Card>();
+    const foundMelds: Meld[] = [];
+    
+    const sortedMelds = allPossibleMelds.sort((a, b) => b.cards.length - a.cards.length);
+    
+    for (const meld of sortedMelds) {
+      if (meld.cards.every(card => !used.has(card))) {
+        foundMelds.push(meld);
+        meld.cards.forEach(card => used.add(card));
+      }
+    }
+    
+    if (used.size === hand.length) {
+      const validation = validateMultipleMelds(hand, foundMelds);
+      if (validation.valid) {
+        return {
+          canGoOut: true,
+          scenario: {
+            type: 'normal',
+            melds: foundMelds,
+            // No discard card - but this is only valid in scenario 1, which is already checked above
+          },
+        };
+      }
+    }
+  }
+
+  return { canGoOut: false, error: 'Não é possível bater com essas cartas' };
+};
