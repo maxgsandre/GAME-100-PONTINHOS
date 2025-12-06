@@ -397,6 +397,7 @@ export function Table({ room }: TableProps) {
           onKnock={handleGoOut}
           onReorderHand={handleReorderHand}
           onLeaveRoom={handleLeaveRoom}
+          onAddCardToMeld={handleAddCardToMeld}
         />
       </div>
 
