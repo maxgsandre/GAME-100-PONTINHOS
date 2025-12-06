@@ -3,7 +3,7 @@ import { DeckArea } from './DeckArea';
 import { HandScroller } from './HandScroller';
 import { MeldDoc } from '../lib/firestoreGame';
 import { GameRules } from '../lib/rules';
-import { LogOut, MessageSquare } from 'lucide-react';
+import { LogOut, MessageSquare, Ban } from 'lucide-react';
 import { useState } from 'react';
 import { Chat } from './Chat';
 import { MeldsArea } from './MeldsArea';
@@ -17,6 +17,7 @@ type Player = {
   isYou?: boolean; 
   isTurn?: boolean;
   position?: 'top' | 'bottom' | 'left' | 'right';
+  isBlocked?: boolean;
 };
 
 interface MobileGameLayoutProps {
@@ -87,23 +88,31 @@ function OpponentHand({ count, position }: { count: number; position: 'top' | 'b
 function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 'bottom' | 'left' | 'right' }) {
   const isVertical = position === 'left' || position === 'right';
   const isTurn = player.isTurn;
+  const isBlocked = player.isBlocked || false;
   
   if (isVertical) {
     return (
-      <div className={`flex flex-col items-center gap-1`}>
-        {player.photoURL ? (
-          <img
-            src={player.photoURL}
-            alt={player.name}
-            className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
-          />
-        ) : (
-          <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
-            {player.name[0].toUpperCase()}
-          </div>
-        )}
+      <div className={`flex flex-col items-center gap-1 relative`}>
+        <div className="relative">
+          {player.photoURL ? (
+            <img
+              src={player.photoURL}
+              alt={player.name}
+              className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
+            />
+          ) : (
+            <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : isBlocked ? 'border-red-400 bg-purple-600' : 'border-gray-400 bg-purple-600'}`}>
+              {player.name[0].toUpperCase()}
+            </div>
+          )}
+          {isBlocked && (
+            <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5">
+              <Ban size={12} className="text-white" />
+            </div>
+          )}
+        </div>
         <div className="flex flex-col items-center">
-          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
+          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : isBlocked ? 'text-red-400' : 'text-white'}`}>
             {player.name}
           </span>
           <span className="text-[10px] md:text-xs lg:text-sm text-gray-300">{player.score} pts</span>
@@ -112,20 +121,27 @@ function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 
     );
   } else {
     return (
-      <div className={`flex ${position === 'top' ? 'flex-col items-center gap-1' : 'flex-col-reverse items-center gap-1'}`}>
-        {player.photoURL ? (
-          <img
-            src={player.photoURL}
-            alt={player.name}
-            className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : 'border-gray-400'}`}
-          />
-        ) : (
-          <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : 'border-gray-400 bg-purple-600'}`}>
-            {player.name[0].toUpperCase()}
-          </div>
-        )}
+      <div className={`flex ${position === 'top' ? 'flex-col items-center gap-1' : 'flex-col-reverse items-center gap-1'} relative`}>
+        <div className="relative">
+          {player.photoURL ? (
+            <img
+              src={player.photoURL}
+              alt={player.name}
+              className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
+            />
+          ) : (
+            <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : isBlocked ? 'border-red-400 bg-purple-600' : 'border-gray-400 bg-purple-600'}`}>
+              {player.name[0].toUpperCase()}
+            </div>
+          )}
+          {isBlocked && (
+            <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5">
+              <Ban size={12} className="text-white" />
+            </div>
+          )}
+        </div>
         <div className="flex flex-col items-center">
-          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : 'text-white'}`}>
+          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : isBlocked ? 'text-red-400' : 'text-white'}`}>
             {player.name}
           </span>
           <span className="text-[10px] md:text-xs lg:text-sm text-gray-300">{player.score} pts</span>
@@ -165,6 +181,11 @@ export function MobileGameLayout({
   const leftPlayer = players.find(p => p.position === 'left' && !p.isYou);
   const rightPlayer = players.find(p => p.position === 'right' && !p.isYou);
 
+  // Check if current player is blocked
+  const currentPlayer = bottomPlayer;
+  const isBlocked = currentPlayer?.isBlocked || false;
+  const isMyTurn = canPlay;
+
   const actions = [
     {
       id: 'discard',
@@ -176,7 +197,9 @@ export function MobileGameLayout({
       id: 'knock',
       label: 'Bater!',
       danger: true,
-      disabled: !canPlay || hand.length < 4,
+      // Disable if: (not my turn AND blocked) OR (my turn AND hand too small for normal scenario)
+      // Allow if: not my turn AND not blocked (can try special scenarios)
+      disabled: (isBlocked && !isMyTurn) || (isMyTurn && hand.length < 2),
     },
   ];
 
