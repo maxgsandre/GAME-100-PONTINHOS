@@ -242,9 +242,9 @@ export function MobileGameLayout({
           </div>
         )}
 
-        {/* Left Player - Leque colado na esquerda, avatar acima do leque à esquerda */}
+        {/* Left Player - Movido para espaço vazio acima (retângulo amarelo) - mantendo formato vertical */}
         {leftPlayer && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-start gap-1 z-10 pl-1">
+          <div className="absolute top-0 left-0 flex flex-col items-start gap-1 z-10 pl-1 pt-1">
             <OpponentHand count={leftPlayer.handCount || 9} position="left" />
             <div className="ml-1">
               <PlayerAvatar player={leftPlayer} position="left" />
