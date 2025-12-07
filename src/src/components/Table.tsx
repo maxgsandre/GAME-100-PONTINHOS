@@ -449,20 +449,10 @@ export function Table({ room }: TableProps) {
         ...selectedCardIndices.slice(indexPos + 1)
       ]);
     } else {
-      // If user has drawn and wants to discard, clear previous selection and select only this card
-      // This makes it easier to discard: just click the card you want to discard
-      if (hasDrawn && selectedCards.length > 0) {
-        // Clear all and select only this card for discard
-        const selectedCard = hand.cards[cardIndex];
-        setSelectedCards([selectedCard]);
-        setSelectedCardIndices([cardIndex]);
-        console.log('handleCardSelect: cleared previous selection, selected only this card for discard');
-      } else {
-        // Selecting a new card (or a different instance of the same card)
-        const selectedCard = hand.cards[cardIndex];
-        setSelectedCards([...selectedCards, selectedCard]);
-        setSelectedCardIndices([...selectedCardIndices, cardIndex]);
-      }
+      // Seleção múltipla sempre permitida; só limpa se quiser descartar usando botão
+      const selectedCard = hand.cards[cardIndex];
+      setSelectedCards([...selectedCards, selectedCard]);
+      setSelectedCardIndices([...selectedCardIndices, cardIndex]);
     }
   };
 
