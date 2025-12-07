@@ -317,8 +317,7 @@ export interface GoOutScenario {
 
 export const canGoOutWithScenarios = (
   hand: Card[],
-  discardTop: Card | null,
-  existingMelds: Meld[] = []
+  discardTop: Card | null
 ): { canGoOut: boolean; scenario?: GoOutScenario; error?: string } => {
   if (hand.length === 0) {
     return { canGoOut: false, error: 'Mão vazia' };

@@ -221,7 +221,7 @@ export function Table({ room }: TableProps) {
     // If not player's turn, try special scenarios
     if (!isMyTurn) {
       // Check if player can go out with special scenarios
-      const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop, melds);
+      const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop);
       if (!scenarioCheck.canGoOut || !scenarioCheck.scenario) {
         alert(scenarioCheck.error || 'Não é possível bater com essas cartas fora da sua vez');
         return;
@@ -229,7 +229,7 @@ export function Table({ room }: TableProps) {
 
       try {
         setActionInProgress(true);
-        const result = await attemptGoOut(room.id, scenarioCheck.scenario, melds);
+        const result = await attemptGoOut(room.id, scenarioCheck.scenario);
         if (result.success) {
           setSelectedCards([]);
         } else {
@@ -252,7 +252,7 @@ export function Table({ room }: TableProps) {
 
     // Check special scenarios first (if player has 2 or 3 cards)
     if (hand.cards.length === 2 || hand.cards.length === 3) {
-      const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop, melds);
+      const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop);
       if (scenarioCheck.canGoOut && scenarioCheck.scenario) {
         try {
           setActionInProgress(true);

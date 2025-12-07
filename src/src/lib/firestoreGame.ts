@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db, getCurrentUserId, getCurrentUserData } from './firebase';
 import { Card, generateDoubleDeck, shuffleDeck, parseCard, getRankValue } from './deck';
-import { GameRules, DEFAULT_RULES, Meld, canAddCardToMeld, canGoOutWithScenarios, GoOutScenario } from './rules';
+import { GameRules, DEFAULT_RULES, Meld, canAddCardToMeld, GoOutScenario } from './rules';
 
 export interface Room {
   id: string;
@@ -524,8 +524,7 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
 // Returns true if successful, false if failed (player gets blocked)
 export const attemptGoOut = async (
   roomId: string,
-  scenario: GoOutScenario,
-  existingMelds: MeldDoc[] = []
+  scenario: GoOutScenario
 ): Promise<{ success: boolean; error?: string }> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
@@ -604,7 +603,7 @@ export const attemptGoOut = async (
         }
         // Remove hand cards (except random card which becomes discard)
         finalHand = finalHand.filter(c => !handCardsNeeded.includes(c));
-        discardCard = scenario.discardCard; // Random card becomes discard
+        discardCard = scenario.discardCard || null; // Random card becomes discard
       } else {
         // Normal scenario or scenario 3
         if (!scenario.discardCard) {
@@ -622,7 +621,7 @@ export const attemptGoOut = async (
         }
 
         finalHand = [];
-        discardCard = scenario.discardCard;
+        discardCard = scenario.discardCard || null;
       }
 
       // If we get here, validation passed - player can go out
@@ -663,12 +662,16 @@ export const attemptGoOut = async (
       });
 
       // Reset all player blocks for next round
-      const playersSnapshot = await transaction.get(query(collection(db, 'rooms', roomId, 'players')));
-      playersSnapshot.forEach((playerDoc) => {
-        if (playerDoc.data().isBlocked) {
-          transaction.update(playerDoc.ref, { isBlocked: false });
+      for (const playerId of roomData.playerOrder) {
+        const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+        const playerDoc = await transaction.get(playerRef);
+        if (playerDoc.exists()) {
+          const playerData = playerDoc.data();
+          if (playerData && playerData.isBlocked) {
+            transaction.update(playerRef, { isBlocked: false });
+          }
         }
-      });
+      }
     });
 
     return { success: true };
@@ -748,7 +751,7 @@ export const goOut = async (
         if (!handCardsNeeded.every(c => handData.cards.includes(c))) {
           throw new Error('Você não tem todas as cartas necessárias');
         }
-        discardCard = scenario.discardCard;
+        discardCard = scenario.discardCard || null;
       }
     }
 
@@ -801,12 +804,16 @@ export const goOut = async (
     });
 
     // Reset all player blocks for next round
-    const playersSnapshot = await transaction.get(query(collection(db, 'rooms', roomId, 'players')));
-    playersSnapshot.forEach((playerDoc) => {
-      if (playerDoc.data().isBlocked) {
-        transaction.update(playerDoc.ref, { isBlocked: false });
+    for (const playerId of roomData.playerOrder) {
+      const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+      const playerDoc = await transaction.get(playerRef);
+      if (playerDoc.exists()) {
+        const playerData = playerDoc.data();
+        if (playerData && playerData.isBlocked) {
+          transaction.update(playerRef, { isBlocked: false });
+        }
       }
-    });
+    }
   });
 };
 
