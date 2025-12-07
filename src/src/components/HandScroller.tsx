@@ -6,6 +6,7 @@ import { parseCard, SUIT_SYMBOLS, SUIT_COLORS } from '../lib/deck';
 export function HandScroller({
   cards,
   selectedCards,
+  selectedIndices,
   onCardSelect,
   selectable,
   onReorder,
@@ -13,7 +14,8 @@ export function HandScroller({
 }: {
   cards: Card[];
   selectedCards: Card[];
-  onCardSelect: (card: Card) => void;
+  selectedIndices?: number[];
+  onCardSelect: (card: Card, index?: number) => void;
   selectable: boolean;
   onReorder?: (newOrder: Card[]) => void;
   allowDragOut?: boolean;
@@ -232,7 +234,10 @@ export function HandScroller({
         const rankDisplay = rank === 'T' ? '10' : rank;
         const suitSymbol = SUIT_SYMBOLS[suit];
         const color = SUIT_COLORS[suit] === 'red' ? 'text-red-600' : 'text-gray-900';
-        const isSelected = selectedCards.includes(card);
+        // Use selectedIndices if available (for duplicate cards), otherwise fall back to selectedCards
+        const isSelected = selectedIndices 
+          ? selectedIndices.includes(index)
+          : selectedCards.includes(card);
 
         const isDragging = draggedIndex === index;
         const isDragOver = dragOverIndex === index;
@@ -251,7 +256,7 @@ export function HandScroller({
             onClick={() => {
               // Só permitir click se não estiver arrastando
               if (draggedIndex === null && touchStartPos.current === null && selectable) {
-                onCardSelect(card);
+                onCardSelect(card, index);
               }
             }}
             style={{
