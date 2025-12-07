@@ -8,9 +8,10 @@ interface MeldsAreaProps {
   players: Array<{ id: string; name: string; photoURL?: string; score?: number }>;
   isMyTurn: boolean;
   onAddCardToMeld?: (meldId: string, card: Card) => void;
+  firstPassComplete?: boolean;
 }
 
-export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld }: MeldsAreaProps) {
+export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, firstPassComplete = true }: MeldsAreaProps) {
   const [dragOverMeldId, setDragOverMeldId] = useState<string | null>(null);
   const areaRef = useRef<HTMLDivElement>(null);
 
@@ -42,10 +43,6 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld }: MeldsAr
     }
     setDragOverMeldId(null);
   };
-
-  if (melds.length === 0) {
-    return null;
-  }
 
   return (
     <div
