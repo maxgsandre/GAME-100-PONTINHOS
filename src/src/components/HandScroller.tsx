@@ -37,11 +37,9 @@ export function HandScroller({
     e.dataTransfer.setData('text/plain', index.toString());
     // Adicionar dados da carta para permitir drop na área de combinações
     if (allowDragOut && cards[index]) {
+      const dragSelection = selectedCards.length > 0 ? selectedCards : [cards[index]];
       e.dataTransfer.setData('application/card', JSON.stringify(cards[index]));
-      // Adicionar também as cartas selecionadas para criar novas combinações
-      if (selectedCards.length > 0) {
-        e.dataTransfer.setData('application/selected-cards', JSON.stringify(selectedCards));
-      }
+      e.dataTransfer.setData('application/selected-cards', JSON.stringify(dragSelection));
     }
     // Criar imagem customizada para o drag
     const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
@@ -250,7 +248,7 @@ export function HandScroller({
           <div
             key={`${card}-${index}`}
             data-card-index={index}
-            draggable={!!onReorder}
+            draggable={allowDragOut || !!onReorder}
             onDragStart={(e) => handleDragStart(e, index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDragLeave={handleDragLeave}
