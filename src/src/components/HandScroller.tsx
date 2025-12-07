@@ -38,6 +38,10 @@ export function HandScroller({
     // Adicionar dados da carta para permitir drop na área de combinações
     if (allowDragOut && cards[index]) {
       e.dataTransfer.setData('application/card', JSON.stringify(cards[index]));
+      // Adicionar também as cartas selecionadas para criar novas combinações
+      if (selectedCards.length > 0) {
+        e.dataTransfer.setData('application/selected-cards', JSON.stringify(selectedCards));
+      }
     }
     // Criar imagem customizada para o drag
     const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
