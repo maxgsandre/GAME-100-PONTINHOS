@@ -45,6 +45,7 @@ interface MobileGameLayoutProps {
   onReorderHand?: (newOrder: Card[]) => void;
   onLeaveRoom?: () => void;
   onAddCardToMeld?: (meldId: string, card: Card) => void;
+  onCreateMeld?: (cards: Card[]) => void;
 }
 
 // Component for opponent hand (fanned cards facing center)
@@ -174,6 +175,7 @@ export function MobileGameLayout({
   onReorderHand,
   onLeaveRoom,
   onAddCardToMeld,
+  onCreateMeld,
   firstPassComplete = true,
 }: MobileGameLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false);
@@ -328,6 +330,8 @@ export function MobileGameLayout({
           players={players}
           isMyTurn={canPlay}
           onAddCardToMeld={onAddCardToMeld}
+          onCreateMeld={onCreateMeld}
+          selectedCards={selectedCards}
           firstPassComplete={firstPassComplete}
         />
 
