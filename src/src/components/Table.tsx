@@ -412,14 +412,28 @@ export function Table({ room }: TableProps) {
   }, {} as Record<string, string>);
 
   const handleCardSelect = (card: Card, index?: number) => {
-    if (!isMyTurn || !hand) return;
+    if (!isMyTurn || !hand) {
+      console.log('handleCardSelect: blocked - isMyTurn:', isMyTurn, 'hand:', !!hand);
+      return;
+    }
     
     // Use the provided index or find the first occurrence
     const cardIndex = index !== undefined ? index : hand.cards.findIndex(c => c === card);
-    if (cardIndex === -1) return;
+    if (cardIndex === -1) {
+      console.log('handleCardSelect: card not found');
+      return;
+    }
     
     // Check if this specific card at this index is already selected
     const isSelected = selectedCardIndices.includes(cardIndex);
+    
+    console.log('handleCardSelect:', {
+      card,
+      cardIndex,
+      isSelected,
+      currentSelectedCount: selectedCards.length,
+      hasDrawn
+    });
     
     if (isSelected) {
       // Deselecting this specific card instance
@@ -435,10 +449,20 @@ export function Table({ room }: TableProps) {
         ...selectedCardIndices.slice(indexPos + 1)
       ]);
     } else {
-      // Selecting a new card (or a different instance of the same card)
-      const selectedCard = hand.cards[cardIndex];
-      setSelectedCards([...selectedCards, selectedCard]);
-      setSelectedCardIndices([...selectedCardIndices, cardIndex]);
+      // If user has drawn and wants to discard, clear previous selection and select only this card
+      // This makes it easier to discard: just click the card you want to discard
+      if (hasDrawn && selectedCards.length > 0) {
+        // Clear all and select only this card for discard
+        const selectedCard = hand.cards[cardIndex];
+        setSelectedCards([selectedCard]);
+        setSelectedCardIndices([cardIndex]);
+        console.log('handleCardSelect: cleared previous selection, selected only this card for discard');
+      } else {
+        // Selecting a new card (or a different instance of the same card)
+        const selectedCard = hand.cards[cardIndex];
+        setSelectedCards([...selectedCards, selectedCard]);
+        setSelectedCardIndices([...selectedCardIndices, cardIndex]);
+      }
     }
   };
 
