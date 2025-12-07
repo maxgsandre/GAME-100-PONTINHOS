@@ -10,6 +10,7 @@ import {
   runTransaction,
   serverTimestamp,
   Timestamp,
+  deleteField,
 } from 'firebase/firestore';
 import { db, getCurrentUserId, getCurrentUserData } from './firebase';
 import { Card, generateDoubleDeck, shuffleDeck, parseCard, getRankValue } from './deck';
@@ -166,6 +167,8 @@ export const startGame = async (roomId: string): Promise<void> => {
 
   await runTransaction(db, async (transaction) => {
     const roomRef = doc(db, 'rooms', roomId);
+    
+    // ALL READS FIRST - Firestore requires all reads before any writes
     const roomDoc = await transaction.get(roomRef);
 
     if (!roomDoc.exists()) {
@@ -184,6 +187,16 @@ export const startGame = async (roomId: string): Promise<void> => {
 
     if (roomData.status !== 'lobby') {
       throw new Error('Jogo já iniciado');
+    }
+
+    // Read all player documents individually (transaction.get() doesn't accept queries)
+    const playerDocs: any[] = [];
+    for (const playerId of roomData.playerOrder) {
+      const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+      const playerDoc = await transaction.get(playerRef);
+      if (playerDoc.exists()) {
+        playerDocs.push(playerDoc);
+      }
     }
 
     // Generate and shuffle deck
@@ -208,7 +221,10 @@ export const startGame = async (roomId: string): Promise<void> => {
     const currentRound = roomData.round || 0;
     const newRound = currentRound + 1;
 
+    // NOW ALL WRITES - After all reads are complete
     // Update room
+    // Note: We don't set pausedBy here because it shouldn't exist at game start
+    // If it exists from a previous round, we'll let it be overwritten naturally
     transaction.update(roomRef, {
       status: 'playing',
       round: newRound,
@@ -217,13 +233,12 @@ export const startGame = async (roomId: string): Promise<void> => {
       lastAction: 'Jogo iniciado',
       firstPassComplete: false, // First pass not complete yet - reset for new round
       isPaused: false,
-      pausedBy: undefined,
     });
 
     // Reset all player blocks for new round
-    const playersSnapshot = await transaction.get(query(collection(db, 'rooms', roomId, 'players')));
-    playersSnapshot.forEach((playerDoc) => {
-      if (playerDoc.data().isBlocked) {
+    playerDocs.forEach((playerDoc) => {
+      const playerData = playerDoc.data();
+      if (playerData && playerData.isBlocked && playerDoc.ref) {
         transaction.update(playerDoc.ref, { isBlocked: false });
       }
     });
@@ -363,7 +378,7 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
 };
 
 // Discard a card
-export const discardCard = async (roomId: string, card: Card): Promise<void> => {
+export const discardCard = async (roomId: string, card: Card, cardIndex?: number): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
 
@@ -388,11 +403,26 @@ export const discardCard = async (roomId: string, card: Card): Promise<void> => 
     const handDoc = await transaction.get(handRef);
     const handData = handDoc.data() as Hand;
 
-    if (!handData.cards.includes(card)) {
-      throw new Error('Carta não está na sua mão');
+    // Use provided index if available, otherwise find the first occurrence
+    let indexToRemove: number;
+    if (cardIndex !== undefined) {
+      // Validate that the card at this index matches
+      if (handData.cards[cardIndex] !== card) {
+        throw new Error('Carta no índice especificado não corresponde');
+      }
+      indexToRemove = cardIndex;
+    } else {
+      // Find the first occurrence
+      indexToRemove = handData.cards.findIndex(c => c === card);
+      if (indexToRemove === -1) {
+        throw new Error('Carta não está na sua mão');
+      }
     }
-
-    const newHand = handData.cards.filter(c => c !== card);
+    
+    const newHand = [
+      ...handData.cards.slice(0, indexToRemove),
+      ...handData.cards.slice(indexToRemove + 1)
+    ];
 
     // Validar que após descartar, o jogador deve ter 9 cartas (ou menos se baixou combinações)
     // Mas nunca mais de 9 se não baixou combinações
@@ -629,7 +659,7 @@ export const attemptGoOut = async (
         winnerId: userId,
         lastAction: 'Bateu!',
         isPaused: false,
-        pausedBy: undefined,
+        pausedBy: deleteField(),
       });
 
       // Reset all player blocks for next round
@@ -662,7 +692,7 @@ export const attemptGoOut = async (
       if (roomData.isPaused && roomData.pausedBy === userId) {
         transaction.update(roomRef, {
           isPaused: false,
-          pausedBy: undefined,
+          pausedBy: deleteField(),
         });
       }
     });
@@ -767,7 +797,7 @@ export const goOut = async (
       winnerId: userId,
       lastAction: 'Bateu!',
       isPaused: false,
-      pausedBy: undefined,
+      pausedBy: deleteField(),
     });
 
     // Reset all player blocks for next round
