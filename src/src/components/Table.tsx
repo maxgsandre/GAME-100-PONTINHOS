@@ -174,8 +174,15 @@ export function Table({ room }: TableProps) {
     }
   };
 
-  const handleLayDownMelds = async () => {
-    if (!isMyTurn || selectedCards.length < 3 || actionInProgress) return;
+  const handleLayDownMelds = async (cardsToLay?: Card[]) => {
+    const cards = cardsToLay || selectedCards;
+    
+    if (!isMyTurn || cards.length < 3 || actionInProgress) {
+      if (cards.length < 3) {
+        alert('Selecione pelo menos 3 cartas para criar uma combinação');
+      }
+      return;
+    }
 
     // Block laying down melds until all players have played at least once
     if (!room.firstPassComplete) {
@@ -185,7 +192,7 @@ export function Table({ room }: TableProps) {
     }
 
     // Group selected cards into melds
-    const meld = isValidMeld(selectedCards);
+    const meld = isValidMeld(cards);
     if (!meld.valid) {
       alert('As cartas selecionadas não formam uma combinação válida');
       return;
@@ -195,10 +202,11 @@ export function Table({ room }: TableProps) {
       setActionInProgress(true);
       const meldToLay: Meld = {
         type: meld.type!,
-        cards: selectedCards,
+        cards: cards,
       };
       await layDownMelds(room.id, [meldToLay]);
       setSelectedCards([]);
+      setSelectedCardIndices([]);
     } catch (error: any) {
       alert(error.message || 'Erro ao baixar combinações');
     } finally {
@@ -550,6 +558,7 @@ export function Table({ room }: TableProps) {
         onReorderHand={handleReorderHand}
         onLeaveRoom={handleLeaveRoom}
         onAddCardToMeld={handleAddCardToMeld}
+        onCreateMeld={handleLayDownMelds}
         firstPassComplete={room.firstPassComplete}
       />
     </>
