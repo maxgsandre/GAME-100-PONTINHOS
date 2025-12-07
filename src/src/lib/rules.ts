@@ -28,25 +28,24 @@ export const isValidSequence = (cards: Card[]): boolean => {
   // All cards must be same suit
   if (!parsed.every(c => c.suit === suit)) return false;
   
-  // Sort by rank value
-  const sorted = [...parsed].sort((a, b) => getRankValue(a.rank) - getRankValue(b.rank));
-  
-  // Check if consecutive (handle Ace as 1 or 14)
-  for (let i = 1; i < sorted.length; i++) {
-    const prevValue = getRankValue(sorted[i - 1].rank);
-    const currValue = getRankValue(sorted[i].rank);
-    
-    // Check if consecutive
-    if (currValue !== prevValue + 1) {
-      // Special case: Ace can be high (Q, K, A)
-      if (sorted[i].rank === 'A' && sorted[i - 1].rank === 'K') {
-        continue;
-      }
-      return false;
+  // Helper to verify consecutiveness given a rank-to-number mapper
+  const isConsecutive = (ranks: Rank[], mapper: (r: Rank) => number) => {
+    const sortedValues = [...ranks].map(mapper).sort((a, b) => a - b);
+    for (let i = 1; i < sortedValues.length; i++) {
+      if (sortedValues[i] !== sortedValues[i - 1] + 1) return false;
     }
-  }
-  
-  return true;
+    return true;
+  };
+
+  const ranks = parsed.map((c) => c.rank);
+
+  // Ace as low (A,2,3...) OR Ace as high (Q,K,A)
+  const aceHighMapper = (r: Rank) => (r === 'A' ? 14 : getRankValue(r));
+
+  const validLow = isConsecutive(ranks, getRankValue);
+  const validHigh = isConsecutive(ranks, aceHighMapper);
+
+  return validLow || validHigh;
 };
 
 // Check if cards form a valid set/trinca (3+ cards, same rank, different suits)
