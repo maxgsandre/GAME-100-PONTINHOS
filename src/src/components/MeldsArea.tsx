@@ -1,6 +1,5 @@
 ﻿import { MeldDoc } from '../lib/firestoreGame';
-import { Card } from '../lib/deck';
-import { CardComponent } from './CardComponent';
+import { Card, parseCard, SUIT_SYMBOLS, SUIT_COLORS } from '../lib/deck';
 import { useState, useRef } from 'react';
 
 interface MeldsAreaProps {
@@ -90,7 +89,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
       className="absolute top-[340px] md:top-[420px] lg:top-[500px] left-0 right-0 bottom-[90px] md:bottom-[118px] lg:bottom-[146px] flex items-center justify-center z-[30] pointer-events-none"
     >
       <div className="w-full h-full mx-2 md:mx-4 lg:mx-6 my-2 md:my-4 lg:my-6 overflow-y-auto overflow-x-hidden pointer-events-auto">
-        <div className="flex flex-col gap-2 md:gap-3 lg:gap-4 items-center">
+        <div className="flex flex-col gap-4 md:gap-5 lg:gap-6 items-center">
           {/* Zona de drop vazia para criar novas combinações - sempre visível quando é minha vez */}
           {isMyTurn && (
             <div
@@ -130,14 +129,14 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, meld.id)}
                 className={`
-                  w-full flex flex-col items-center gap-2 md:gap-3 px-2 md:px-3 lg:px-4 py-2 md:py-3 rounded-lg md:rounded-xl
+                  w-full flex flex-col items-center gap-2 md:gap-3 px-2 md:px-3 lg:px-4 py-3 md:py-4 rounded-lg md:rounded-xl
                   ${isDragOver ? 'bg-emerald-500/30 border-2 border-emerald-400' : 'bg-emerald-900/40 border border-emerald-700/50'}
                   transition-colors
                 `}
               >
                 {/* Player Avatar - Miniatura no topo */}
                 {player && (
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 mb-1">
                     {player.photoURL ? (
                       <img
                         src={player.photoURL}
@@ -152,17 +151,45 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                   </div>
                 )}
 
-                {/* Cards - Layout vertical (coluna) como paciência */}
-                <div className="flex flex-col gap-1 md:gap-2 items-center">
-                  {meld.cards.map((card, index) => (
-                    <div key={`${card}-${index}`} className="flex-shrink-0">
-                      <CardComponent
-                        card={card}
-                        size="tiny"
-                        disabled
-                      />
-                    </div>
-                  ))}
+                {/* Cards - Layout vertical (coluna) estilo paciência com sobreposição */}
+                <div className="flex flex-col items-center relative" style={{ minHeight: `${meld.cards.length * 20 + 100}px`, width: '100%' }}>
+                  {meld.cards.map((card, index) => {
+                    const { rank, suit } = parseCard(card);
+                    const rankDisplay = rank === 'T' ? '10' : rank;
+                    const suitSymbol = SUIT_SYMBOLS[suit];
+                    const color = SUIT_COLORS[suit] === 'red' ? 'text-red-600' : 'text-gray-900';
+                    
+                    return (
+                      <div
+                        key={`${card}-${index}`}
+                        className="absolute flex-shrink-0"
+                        style={{
+                          top: `${index * 20}px`,
+                          zIndex: index,
+                        }}
+                      >
+                        <div className="relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl bg-white border border-gray-300">
+                          {/* Top left corner */}
+                          <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
+                            <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+                            <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
+                          </div>
+                          {/* Center */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex flex-col items-center">
+                              <span className={`text-2xl md:text-3xl lg:text-4xl ${color}`}>{suitSymbol}</span>
+                              <span className={`text-lg md:text-xl lg:text-2xl font-bold ${color}`}>{rankDisplay}</span>
+                            </div>
+                          </div>
+                          {/* Bottom right corner (rotated) */}
+                          <div className="absolute bottom-0.5 right-0.5 md:bottom-1 md:right-1 flex flex-col items-center rotate-180">
+                            <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+                            <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
