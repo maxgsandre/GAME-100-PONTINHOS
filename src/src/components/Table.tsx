@@ -40,7 +40,6 @@ export function Table({ room }: TableProps) {
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [showFirstPassWarning, setShowFirstPassWarning] = useState(false);
 
   const isMyTurn = room.playerOrder[room.turnIndex] === userId;
 
@@ -181,13 +180,6 @@ export function Table({ room }: TableProps) {
       if (cards.length < 3) {
         alert('Selecione pelo menos 3 cartas para criar uma combinação');
       }
-      return;
-    }
-
-    // Block laying down melds until all players have played at least once
-    if (!room.firstPassComplete) {
-      setShowFirstPassWarning(true);
-      setTimeout(() => setShowFirstPassWarning(false), 2000);
       return;
     }
 
@@ -516,23 +508,6 @@ export function Table({ room }: TableProps) {
 
   return (
     <>
-      {/* First Pass Warning Toast */}
-      {showFirstPassWarning && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
-          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 backdrop-blur-sm border-2 border-yellow-400 rounded-2xl px-6 py-4 md:px-8 md:py-6 shadow-2xl transform animate-pulse">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="text-3xl md:text-4xl">⚠️</div>
-              <div>
-                <p className="text-white font-bold text-base md:text-lg mb-1">Primeira Passada</p>
-                <p className="text-yellow-100 text-sm md:text-base">
-                  Não é permitido baixar combinações na primeira vez de cada jogador na rodada
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Unified Layout - Mobile and Desktop */}
       <MobileGameLayout
         round={room.round}
@@ -559,7 +534,6 @@ export function Table({ room }: TableProps) {
         onLeaveRoom={handleLeaveRoom}
         onAddCardToMeld={handleAddCardToMeld}
         onCreateMeld={handleLayDownMelds}
-        firstPassComplete={room.firstPassComplete}
       />
     </>
   );
