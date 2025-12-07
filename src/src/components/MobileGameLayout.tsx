@@ -35,7 +35,6 @@ interface MobileGameLayoutProps {
   hasDrawn: boolean;
   rules?: GameRules;
   roomId: string;
-  firstPassComplete?: boolean; // Add this prop
   onBuyStock: () => void;
   onBuyDiscard: () => void;
   onCardSelect: (card: Card) => void;
@@ -176,7 +175,6 @@ export function MobileGameLayout({
   onLeaveRoom,
   onAddCardToMeld,
   onCreateMeld,
-  firstPassComplete = true,
 }: MobileGameLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
@@ -332,7 +330,6 @@ export function MobileGameLayout({
           onAddCardToMeld={onAddCardToMeld}
           onCreateMeld={onCreateMeld}
           selectedCards={selectedCards}
-          firstPassComplete={firstPassComplete}
         />
 
         {/* Bottom Player (You) - Botões um de cada lado do avatar, leque colado embaixo */}
@@ -399,7 +396,7 @@ export function MobileGameLayout({
                 onCardSelect={onCardSelect}
                 selectable={canPlay}
                 onReorder={onReorderHand}
-                allowDragOut={canPlay && melds.length > 0}
+                allowDragOut={canPlay}
               />
             </div>
           </div>
