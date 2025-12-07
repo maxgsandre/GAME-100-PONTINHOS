@@ -1,4 +1,4 @@
-import { MeldDoc } from '../lib/firestoreGame';
+﻿import { MeldDoc } from '../lib/firestoreGame';
 import { Card } from '../lib/deck';
 import { CardComponent } from './CardComponent';
 import { useState, useRef } from 'react';
@@ -10,10 +10,9 @@ interface MeldsAreaProps {
   onAddCardToMeld?: (meldId: string, card: Card) => void;
   onCreateMeld?: (cards: Card[]) => void;
   selectedCards?: Card[];
-  firstPassComplete?: boolean;
 }
 
-export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateMeld, selectedCards = [], firstPassComplete = true }: MeldsAreaProps) {
+export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateMeld, selectedCards = [] }: MeldsAreaProps) {
   const [dragOverMeldId, setDragOverMeldId] = useState<string | null>(null);
   const [dragOverEmpty, setDragOverEmpty] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
@@ -50,7 +49,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   const handleEmptyDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     // Verificar se há cartas selecionadas e se pode criar combinação
-    if (selectedCards.length >= 3 && onCreateMeld && isMyTurn && firstPassComplete) {
+    if (selectedCards.length >= 3 && onCreateMeld && isMyTurn) {
       e.dataTransfer.dropEffect = 'move';
       setDragOverEmpty(true);
     } else {
@@ -77,12 +76,10 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
       console.error('Error parsing selected cards data:', error);
     }
     
-    if (cardsToUse.length >= 3 && onCreateMeld && isMyTurn && firstPassComplete) {
+    if (cardsToUse.length >= 3 && onCreateMeld && isMyTurn) {
       onCreateMeld(cardsToUse);
-    } else if (!firstPassComplete) {
-      alert('Não é permitido baixar combinações na primeira vez de cada jogador na rodada');
     } else if (cardsToUse.length < 3) {
-      alert('Selecione pelo menos 3 cartas para criar uma combinação');
+      alert('Selecione pelo menos 3 cartas para criar uma combinacao');
     }
     setDragOverEmpty(false);
   };
@@ -90,9 +87,9 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   return (
     <div
       ref={areaRef}
-      className="absolute top-[300px] md:top-[388px] lg:top-[476px] left-0 right-0 bottom-[120px] md:bottom-[148px] lg:bottom-[176px] flex items-center justify-center z-[30] pointer-events-none"
+      className="absolute top-[340px] md:top-[420px] lg:top-[500px] left-0 right-0 bottom-[90px] md:bottom-[118px] lg:bottom-[146px] flex items-center justify-center z-[30] pointer-events-none"
     >
-      <div className="w-full h-full mx-4 md:mx-8 lg:mx-12 my-2 md:my-4 lg:my-6 overflow-y-auto overflow-x-hidden pointer-events-auto">
+      <div className="w-full h-full mx-2 md:mx-4 lg:mx-6 my-2 md:my-4 lg:my-6 overflow-y-auto overflow-x-hidden pointer-events-auto">
         <div className="flex flex-col gap-2 md:gap-3 lg:gap-4 items-center">
           {/* Zona de drop vazia para criar novas combinações - sempre visível quando é minha vez */}
           {isMyTurn && (
@@ -106,21 +103,17 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                 flex items-center justify-center cursor-pointer relative z-[31]
                 ${dragOverEmpty 
                   ? 'bg-emerald-500/40 border-emerald-400' 
-                  : firstPassComplete
-                    ? 'bg-emerald-900/30 border-emerald-700/70 hover:bg-emerald-900/40'
-                    : 'bg-yellow-900/30 border-yellow-700/70'
+                  : 'bg-emerald-900/30 border-emerald-700/70 hover:bg-emerald-900/40'
                 }
                 transition-colors
               `}
-              title={firstPassComplete ? 'Arraste cartas selecionadas aqui para criar combinação' : 'Aguarde a primeira passada'}
+              title="Arraste cartas selecionadas aqui para criar combinacao"
               style={{ pointerEvents: 'auto' }}
             >
               {dragOverEmpty ? (
-                <p className="text-emerald-300 text-sm md:text-base font-semibold">Solte aqui para criar combinação</p>
-              ) : firstPassComplete ? (
-                <p className="text-emerald-400/80 text-xs md:text-sm font-medium">Arraste cartas selecionadas aqui para criar combinação</p>
+                <p className="text-emerald-300 text-sm md:text-base font-semibold">Solte aqui para criar combinacao</p>
               ) : (
-                <p className="text-yellow-400/70 text-xs md:text-sm font-medium">Aguarde a primeira passada para criar combinações</p>
+                <p className="text-emerald-400/80 text-xs md:text-sm font-medium">Arraste cartas selecionadas aqui para criar combinacao</p>
               )}
             </div>
           )}
@@ -179,4 +172,5 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
     </div>
   );
 }
+
 
