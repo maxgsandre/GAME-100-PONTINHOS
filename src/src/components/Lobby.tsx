@@ -38,8 +38,15 @@ export function Lobby({ room }: LobbyProps) {
     try {
       setStarting(true);
       await startGame(room.id);
+      // If successful, the component will re-render with new room status
     } catch (error: any) {
       console.error('Failed to start game:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+        error: error
+      });
       alert(error.message || 'Erro ao iniciar jogo');
       setStarting(false);
     }
