@@ -37,7 +37,7 @@ interface MobileGameLayoutProps {
   roomId: string;
   onBuyStock: () => void;
   onBuyDiscard: () => void;
-  onCardSelect: (card: Card) => void;
+  onCardSelect: (card: Card, index?: number) => void;
   onDiscard: () => void;
   onMeld: () => void;
   onKnock: () => void;
@@ -202,6 +202,17 @@ export function MobileGameLayout({
         : selectedCards.length > 1
           ? 'Selecione apenas uma carta'
           : '';
+  
+  // Debug log
+  if (canPlay && hasDrawn) {
+    console.log('Discard button state:', {
+      canPlay,
+      hasDrawn,
+      selectedCardsLength: selectedCards.length,
+      discardDisabled,
+      selectedCards
+    });
+  }
 
   const actions = [
     {
