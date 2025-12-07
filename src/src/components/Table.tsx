@@ -37,8 +37,10 @@ export function Table({ room }: TableProps) {
   const [deckState, setDeckState] = useState<DeckState | null>(null);
   const [melds, setMelds] = useState<MeldDoc[]>([]);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
+  const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
+  const [showFirstPassWarning, setShowFirstPassWarning] = useState(false);
 
   const isMyTurn = room.playerOrder[room.turnIndex] === userId;
 
@@ -56,13 +58,23 @@ export function Table({ room }: TableProps) {
     };
   }, [room.id, userId]);
 
-  // Reset hasDrawn when turn changes
+  // Track previous turn index to detect turn changes
+  const prevTurnIndex = useRef<number>(room.turnIndex);
+  
+  // Reset hasDrawn when turn changes (only when it becomes my turn, not when it's already my turn)
   useEffect(() => {
-    if (isMyTurn) {
+    // Only reset if turnIndex actually changed AND it's now my turn
+    if (isMyTurn && prevTurnIndex.current !== room.turnIndex) {
       setHasDrawn(false);
       setSelectedCards([]); // Clear selection when turn changes
+      setSelectedCardIndices([]); // Clear selected indices when turn changes
+      prevTurnIndex.current = room.turnIndex;
+    } else if (!isMyTurn) {
+      // If it's not my turn anymore, update the ref but don't reset hasDrawn
+      prevTurnIndex.current = room.turnIndex;
     }
   }, [room.turnIndex, isMyTurn]);
+
 
   // Auto-select newly drawn card
   const prevHand = useRef<Card[]>([]);
@@ -78,9 +90,13 @@ export function Table({ room }: TableProps) {
     // If hand increased by 1 card and we just drew, find the new card
     if (currentHand.length === prevHandCards.length + 1 && hasDrawn) {
       // Find the card that's in current hand but not in previous hand
-      const newCard = currentHand.find(card => !prevHandCards.includes(card));
-      if (newCard && !selectedCards.includes(newCard)) {
-        setSelectedCards([newCard]);
+      const newCardIndex = currentHand.findIndex(card => !prevHandCards.includes(card));
+      if (newCardIndex !== -1) {
+        const newCard = currentHand[newCardIndex];
+        if (!selectedCards.includes(newCard)) {
+          setSelectedCards([newCard]);
+          setSelectedCardIndices([newCardIndex]);
+        }
       }
     }
 
@@ -88,11 +104,17 @@ export function Table({ room }: TableProps) {
   }, [hand?.cards, hasDrawn, isMyTurn, hand, selectedCards]);
 
   const handleDrawStock = async () => {
-    if (!isMyTurn || hasDrawn || actionInProgress) return;
+    if (!isMyTurn || hasDrawn || actionInProgress) {
+      if (hasDrawn) {
+        alert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.');
+      }
+      return;
+    }
 
     try {
       setActionInProgress(true);
       await drawFromStock(room.id);
+      // IMPORTANT: Set hasDrawn to true AFTER successfully drawing
       setHasDrawn(true);
     } catch (error: any) {
       alert(error.message || 'Erro ao comprar do monte');
@@ -102,11 +124,17 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDrawDiscard = async () => {
-    if (!isMyTurn || hasDrawn || actionInProgress) return;
+    if (!isMyTurn || hasDrawn || actionInProgress) {
+      if (hasDrawn) {
+        alert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.');
+      }
+      return;
+    }
 
     try {
       setActionInProgress(true);
       await drawFromDiscard(room.id);
+      // IMPORTANT: Set hasDrawn to true AFTER successfully drawing
       setHasDrawn(true);
     } catch (error: any) {
       alert(error.message || 'Erro ao comprar do descarte');
@@ -116,13 +144,29 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDiscard = async () => {
-    if (!isMyTurn || !hasDrawn || selectedCards.length !== 1 || actionInProgress) return;
+    if (!isMyTurn || !hasDrawn || selectedCards.length !== 1 || !hand || actionInProgress) {
+      if (!hasDrawn) {
+        alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
+      }
+      return;
+    }
 
     try {
       setActionInProgress(true);
-      await discardCard(room.id, selectedCards[0]);
+      // Use the specific index of the selected card
+      const selectedIndex = selectedCardIndices[0];
+      const cardToDiscard = selectedIndex !== undefined 
+        ? hand.cards[selectedIndex] 
+        : selectedCards[0];
+      
+      if (!cardToDiscard) {
+        throw new Error('Carta não encontrada');
+      }
+      
+      await discardCard(room.id, cardToDiscard, selectedIndex);
       setSelectedCards([]);
-      setHasDrawn(false);
+      setSelectedCardIndices([]);
+      setHasDrawn(false); // Reset after discarding - ready for next turn
     } catch (error: any) {
       alert(error.message || 'Erro ao descartar');
     } finally {
@@ -135,7 +179,8 @@ export function Table({ room }: TableProps) {
 
     // Block laying down melds until all players have played at least once
     if (!room.firstPassComplete) {
-      alert('Não é permitido baixar combinações na primeira vez de cada jogador na rodada');
+      setShowFirstPassWarning(true);
+      setTimeout(() => setShowFirstPassWarning(false), 2000);
       return;
     }
 
@@ -366,16 +411,35 @@ export function Table({ room }: TableProps) {
     return acc;
   }, {} as Record<string, string>);
 
-  const handleCardSelect = (card: Card) => {
-    if (!isMyTurn) return;
+  const handleCardSelect = (card: Card, index?: number) => {
+    if (!isMyTurn || !hand) return;
     
-    let newSelected: Card[];
-    if (selectedCards.includes(card)) {
-      newSelected = selectedCards.filter(c => c !== card);
+    // Use the provided index or find the first occurrence
+    const cardIndex = index !== undefined ? index : hand.cards.findIndex(c => c === card);
+    if (cardIndex === -1) return;
+    
+    // Check if this specific card at this index is already selected
+    const isSelected = selectedCardIndices.includes(cardIndex);
+    
+    if (isSelected) {
+      // Deselecting this specific card instance
+      const indexPos = selectedCardIndices.indexOf(cardIndex);
+      if (indexPos === -1) return; // Should not happen, but safety check
+      
+      setSelectedCards([
+        ...selectedCards.slice(0, indexPos),
+        ...selectedCards.slice(indexPos + 1)
+      ]);
+      setSelectedCardIndices([
+        ...selectedCardIndices.slice(0, indexPos),
+        ...selectedCardIndices.slice(indexPos + 1)
+      ]);
     } else {
-      newSelected = [...selectedCards, card];
+      // Selecting a new card (or a different instance of the same card)
+      const selectedCard = hand.cards[cardIndex];
+      setSelectedCards([...selectedCards, selectedCard]);
+      setSelectedCardIndices([...selectedCardIndices, cardIndex]);
     }
-    setSelectedCards(newSelected);
   };
 
   const handleReorderHand = async (newOrder: Card[]) => {
@@ -383,6 +447,32 @@ export function Table({ room }: TableProps) {
     
     try {
       await reorderHand(room.id, newOrder);
+      
+      // Update selected card indices based on new order
+      // Map old indices to new positions
+      const oldCards = hand.cards;
+      const newIndices: number[] = [];
+      const newSelectedCards: Card[] = [];
+      
+      selectedCardIndices.forEach((oldIndex) => {
+        const card = oldCards[oldIndex];
+        const newIndex = newOrder.findIndex((c, idx) => {
+          // Find the same card at the same relative position
+          // Count how many times this card appears before oldIndex in old order
+          const occurrencesBeforeOld = oldCards.slice(0, oldIndex).filter(c => c === card).length;
+          // Count how many times this card appears before newIndex in new order
+          const occurrencesBeforeNew = newOrder.slice(0, idx).filter(c => c === card).length;
+          return c === card && occurrencesBeforeNew === occurrencesBeforeOld;
+        });
+        
+        if (newIndex !== -1) {
+          newIndices.push(newIndex);
+          newSelectedCards.push(card);
+        }
+      });
+      
+      setSelectedCardIndices(newIndices);
+      setSelectedCards(newSelectedCards);
     } catch (error: any) {
       console.error('Erro ao reordenar cartas:', error);
       // Não mostrar alerta para não interromper a experiência
@@ -418,6 +508,23 @@ export function Table({ room }: TableProps) {
 
   return (
     <>
+      {/* First Pass Warning Toast */}
+      {showFirstPassWarning && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
+          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 backdrop-blur-sm border-2 border-yellow-400 rounded-2xl px-6 py-4 md:px-8 md:py-6 shadow-2xl transform animate-pulse">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="text-3xl md:text-4xl">⚠️</div>
+              <div>
+                <p className="text-white font-bold text-base md:text-lg mb-1">Primeira Passada</p>
+                <p className="text-yellow-100 text-sm md:text-base">
+                  Não é permitido baixar combinações na primeira vez de cada jogador na rodada
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Unified Layout - Mobile and Desktop */}
       <MobileGameLayout
         round={room.round}
@@ -427,6 +534,7 @@ export function Table({ room }: TableProps) {
         stockCount={deckState.stock.length}
         hand={hand.cards}
         selectedCards={selectedCards}
+        selectedIndices={selectedCardIndices}
         melds={melds}
         playerNames={playerNamesMap}
         canPlay={isMyTurn && !actionInProgress}
@@ -442,6 +550,7 @@ export function Table({ room }: TableProps) {
         onReorderHand={handleReorderHand}
         onLeaveRoom={handleLeaveRoom}
         onAddCardToMeld={handleAddCardToMeld}
+        firstPassComplete={room.firstPassComplete}
       />
     </>
   );
