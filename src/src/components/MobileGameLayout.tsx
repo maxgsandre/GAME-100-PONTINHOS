@@ -28,12 +28,14 @@ interface MobileGameLayoutProps {
   stockCount: number;
   hand: Card[];
   selectedCards: Card[];
+  selectedIndices?: number[];
   melds: MeldDoc[];
   playerNames: Record<string, string>;
   canPlay: boolean;
   hasDrawn: boolean;
   rules?: GameRules;
   roomId: string;
+  firstPassComplete?: boolean; // Add this prop
   onBuyStock: () => void;
   onBuyDiscard: () => void;
   onCardSelect: (card: Card) => void;
@@ -159,6 +161,7 @@ export function MobileGameLayout({
   stockCount,
   hand,
   selectedCards,
+  selectedIndices,
   melds,
   canPlay,
   hasDrawn,
@@ -171,6 +174,7 @@ export function MobileGameLayout({
   onReorderHand,
   onLeaveRoom,
   onAddCardToMeld,
+  firstPassComplete = true,
 }: MobileGameLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
@@ -186,12 +190,26 @@ export function MobileGameLayout({
   const isBlocked = currentPlayer?.isBlocked || false;
   const isMyTurn = canPlay;
 
+  // Determine why discard button is disabled
+  // Simple logic: if it's my turn AND I've drawn a card AND I have exactly 1 card selected
+  const discardDisabled = !canPlay || !hasDrawn || selectedCards.length !== 1;
+  const discardDisabledReason = !canPlay 
+    ? 'Não é sua vez' 
+    : !hasDrawn 
+      ? 'Você precisa comprar uma carta primeiro (do monte ou do descarte)' 
+      : selectedCards.length === 0
+        ? 'Selecione uma carta para descartar'
+        : selectedCards.length > 1
+          ? 'Selecione apenas uma carta'
+          : '';
+
   const actions = [
     {
       id: 'discard',
       label: `Descartar${selectedCards.length > 0 ? ` (${selectedCards.length}/1)` : ' (0/1)'}`,
       type: 'primary' as const,
-      disabled: !canPlay || !hasDrawn || selectedCards.length !== 1,
+      disabled: discardDisabled,
+      title: discardDisabled ? discardDisabledReason : 'Descartar carta selecionada',
     },
     {
       id: 'knock',
@@ -204,7 +222,9 @@ export function MobileGameLayout({
   ];
 
   const handleAction = (id: string) => {
+    console.log('handleAction called:', id, 'discardDisabled:', discardDisabled, 'canPlay:', canPlay, 'hasDrawn:', hasDrawn, 'selectedCards:', selectedCards.length);
     if (id === 'discard') {
+      console.log('Calling onDiscard');
       onDiscard();
     } else if (id === 'knock') {
       onKnock();
@@ -308,21 +328,40 @@ export function MobileGameLayout({
           players={players}
           isMyTurn={canPlay}
           onAddCardToMeld={onAddCardToMeld}
+          firstPassComplete={firstPassComplete}
         />
 
         {/* Bottom Player (You) - Botões um de cada lado do avatar, leque colado embaixo */}
         {bottomPlayer && (
-          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-10 pb-1">
+          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-50 pb-1">
             {/* Action Buttons e Avatar - Botões nas laterais, avatar no centro */}
             <div className="flex items-center gap-3 md:gap-4 lg:gap-6 mb-1 md:mb-2 lg:mb-3">
               {/* Botão Descartar - Esquerda */}
               <button
-                onClick={() => handleAction('discard')}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Discard button clicked', {
+                    disabled: actions[0].disabled,
+                    canPlay,
+                    hasDrawn,
+                    selectedCardsLength: selectedCards.length,
+                    discardDisabled,
+                    discardDisabledReason
+                  });
+                  if (!actions[0].disabled) {
+                    handleAction('discard');
+                  } else {
+                    alert(discardDisabledReason || 'Botão desabilitado');
+                  }
+                }}
                 disabled={actions[0].disabled}
-                className={`px-4 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 rounded-lg font-semibold text-sm md:text-base lg:text-lg transition-colors ${
+                title={actions[0].title}
+                className={`px-4 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 rounded-lg font-semibold text-sm md:text-base lg:text-lg transition-colors relative z-50 ${
                   actions[0].disabled
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 cursor-pointer'
                 }`}
               >
                 Descartar
@@ -352,6 +391,7 @@ export function MobileGameLayout({
               <HandScroller
                 cards={hand}
                 selectedCards={selectedCards}
+                selectedIndices={selectedIndices}
                 onCardSelect={onCardSelect}
                 selectable={canPlay}
                 onReorder={onReorderHand}
