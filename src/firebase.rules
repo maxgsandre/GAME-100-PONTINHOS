@@ -40,6 +40,11 @@ service cloud.firestore {
           isRoomOwner(roomId) &&
           resource.data.status == 'lobby' &&
           request.resource.data.status == 'playing'
+        ) ||
+        (
+          isRoomOwner(roomId) &&
+          resource.data.status == 'roundEnd' &&
+          request.resource.data.status == 'playing'
         )
       );
       
@@ -61,20 +66,37 @@ service cloud.firestore {
         
         // Allow update if:
         // 1. Player is updating their own data, OR
-        // 2. Room member is updating hasDrawnThisTurn during game (when turn changes)
-        //    - Only allow updating hasDrawnThisTurn and isBlocked fields by other members
+        // 2. Room owner is updating player data when starting new round (status is lobby or roundEnd), OR
+        // 3. Room member is updating hasDrawnThisTurn during game (when turn changes)
         allow update: if isAuthenticated() && (
           request.auth.uid == playerId ||
           (
+            isRoomOwner(roomId) &&
+            (
+              // Owner can update when room is in lobby (starting first game)
+              get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'lobby' ||
+              // Owner can update when room is in roundEnd (starting next round)
+              get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'roundEnd'
+            ) &&
+            // Owner can update score, hasDrawnThisTurn, and isBlocked when starting new round
+            // All other fields must remain unchanged
+            request.resource.data.name == resource.data.name &&
+            request.resource.data.isReady == resource.data.isReady &&
+            request.resource.data.photoURL == resource.data.photoURL &&
+            (request.resource.data.joinedAt == resource.data.joinedAt ||
+             (!('joinedAt' in request.resource.data) && !('joinedAt' in resource.data)))
+          ) ||
+          (
             isRoomMember(roomId) &&
             get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'playing' &&
-            // Other members can only update hasDrawnThisTurn and isBlocked
+            // Other members can only update hasDrawnThisTurn and isBlocked during game
             // All other fields must remain unchanged
             request.resource.data.name == resource.data.name &&
             request.resource.data.score == resource.data.score &&
             request.resource.data.isReady == resource.data.isReady &&
             request.resource.data.photoURL == resource.data.photoURL &&
-            request.resource.data.joinedAt == resource.data.joinedAt
+            (request.resource.data.joinedAt == resource.data.joinedAt ||
+             (!('joinedAt' in request.resource.data) && !('joinedAt' in resource.data)))
           )
         );
         
