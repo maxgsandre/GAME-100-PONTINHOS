@@ -30,7 +30,6 @@ export function HandScroller({
       e.preventDefault();
       return;
     }
-    console.log('Drag start:', index);
     setDraggedIndex(index);
     setDragPosition({ x: e.clientX, y: e.clientY });
     e.dataTransfer.effectAllowed = 'move';
@@ -78,7 +77,6 @@ export function HandScroller({
     const [removed] = newOrder.splice(draggedIndex, 1);
     newOrder.splice(dropIndex, 0, removed);
 
-    console.log('Reordenando cartas:', { from: draggedIndex, to: dropIndex, newOrder });
     onReorder(newOrder);
     setDraggedIndex(null);
     setDragOverIndex(null);
