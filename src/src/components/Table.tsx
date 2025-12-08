@@ -24,6 +24,7 @@ import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
 import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios } from '../lib/rules';
 import { useNavigate } from 'react-router-dom';
+import { useDialog } from '../contexts/DialogContext';
 
 interface TableProps {
   room: Room;
@@ -32,6 +33,7 @@ interface TableProps {
 export function Table({ room }: TableProps) {
   const navigate = useNavigate();
   const userId = useAppStore(state => state.userId);
+  const { alert } = useDialog();
   const [players, setPlayers] = useState<Player[]>([]);
   const [hand, setHand] = useState<Hand | null>(null);
   const [opponentHands, setOpponentHands] = useState<Record<string, Hand>>({});
@@ -166,7 +168,7 @@ export function Table({ room }: TableProps) {
   const handleDrawStock = async () => {
     if (!isMyTurn || hasDrawn || actionInProgress) {
       if (hasDrawn) {
-        alert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.');
+        await alert({ message: 'Você já comprou uma carta neste turno. Descartar uma carta primeiro.' });
       }
       return;
     }
@@ -177,7 +179,7 @@ export function Table({ room }: TableProps) {
       // IMPORTANT: Set hasDrawn to true AFTER successfully drawing
       setHasDrawn(true);
     } catch (error: any) {
-      alert(error.message || 'Erro ao comprar do monte');
+      await alert({ message: error.message || 'Erro ao comprar do monte' });
     } finally {
       setActionInProgress(false);
     }
@@ -186,7 +188,7 @@ export function Table({ room }: TableProps) {
   const handleDrawDiscard = async () => {
     if (!isMyTurn || hasDrawn || actionInProgress) {
       if (hasDrawn) {
-        alert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.');
+        await alert({ message: 'Você já comprou uma carta neste turno. Descartar uma carta primeiro.' });
       }
       return;
     }
@@ -197,7 +199,7 @@ export function Table({ room }: TableProps) {
       // IMPORTANT: Set hasDrawn to true AFTER successfully drawing
       setHasDrawn(true);
     } catch (error: any) {
-      alert(error.message || 'Erro ao comprar do descarte');
+      await alert({ message: error.message || 'Erro ao comprar do descarte' });
     } finally {
       setActionInProgress(false);
     }
@@ -207,7 +209,7 @@ export function Table({ room }: TableProps) {
     // Player MUST draw first before being able to discard
     if (!isMyTurn || !hasDrawn || selectedCards.length !== 1 || !hand || actionInProgress) {
       if (!hasDrawn) {
-        alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
+        await alert({ message: 'Você precisa comprar uma carta primeiro (do monte ou do descarte)' });
       }
       return;
     }
@@ -229,7 +231,7 @@ export function Table({ room }: TableProps) {
       setSelectedCardIndices([]);
       setHasDrawn(false); // Reset after discarding - ready for next turn
     } catch (error: any) {
-      alert(error.message || 'Erro ao descartar');
+      await alert({ message: error.message || 'Erro ao descartar' });
     } finally {
       setActionInProgress(false);
     }
@@ -241,9 +243,9 @@ export function Table({ room }: TableProps) {
     // Player must draw first before laying down melds
     if (!isMyTurn || !hasDrawn || cards.length < 3 || actionInProgress) {
       if (!hasDrawn) {
-        alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
+        await alert({ message: 'Você precisa comprar uma carta primeiro (do monte ou do descarte)' });
       } else if (cards.length < 3) {
-        alert('Selecione pelo menos 3 cartas para criar uma combinação');
+        await alert({ message: 'Selecione pelo menos 3 cartas para criar uma combinação' });
       }
       return;
     }
@@ -270,7 +272,7 @@ export function Table({ room }: TableProps) {
     }
 
     if (!meld.valid) {
-      alert('As cartas selecionadas não formam uma combinação válida');
+      await alert({ message: 'As cartas selecionadas não formam uma combinação válida' });
       return;
     }
 
@@ -284,7 +286,7 @@ export function Table({ room }: TableProps) {
       setSelectedCards([]);
       setSelectedCardIndices([]);
     } catch (error: any) {
-      alert(error.message || 'Erro ao baixar combinações');
+      await alert({ message: error.message || 'Erro ao baixar combinações' });
     } finally {
       setActionInProgress(false);
     }
@@ -299,13 +301,13 @@ export function Table({ room }: TableProps) {
     // "Bater!" button is only for pausing when it's NOT your turn
     // When it's your turn, you automatically go out by discarding the last card
     if (isMyTurn) {
-      alert('Na sua vez, você bate automaticamente ao descartar a última carta. Use o botão "Descartar".');
+      await alert({ message: 'Na sua vez, você bate automaticamente ao descartar a última carta. Use o botão "Descartar".' });
       return;
     }
 
     // If not player's turn and they're blocked, don't allow
     if (isBlocked) {
-      alert('Você está bloqueado. Só pode bater na sua vez.');
+      await alert({ message: 'Você está bloqueado. Só pode bater na sua vez.' });
       return;
     }
 
@@ -314,7 +316,7 @@ export function Table({ room }: TableProps) {
       // Check if player can go out with special scenarios
       const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop);
       if (!scenarioCheck.canGoOut || !scenarioCheck.scenario) {
-        alert(scenarioCheck.error || 'Não é possível bater com essas cartas fora da sua vez');
+        await alert({ message: scenarioCheck.error || 'Não é possível bater com essas cartas fora da sua vez' });
         return;
       }
 
@@ -324,10 +326,10 @@ export function Table({ room }: TableProps) {
         if (result.success) {
           setSelectedCards([]);
         } else {
-          alert(result.error || 'Não foi possível bater. Você foi bloqueado.');
+          await alert({ message: result.error || 'Não foi possível bater. Você foi bloqueado.' });
         }
       } catch (error: any) {
-        alert(error.message || 'Erro ao tentar bater');
+        await alert({ message: error.message || 'Erro ao tentar bater' });
       } finally {
         setActionInProgress(false);
       }
@@ -337,7 +339,7 @@ export function Table({ room }: TableProps) {
     // Normal turn - player's turn
     // Need at least 4 cards: 3 for a meld + 1 to discard (or special scenarios)
     if (hand.cards.length < 2) {
-      alert('Você precisa ter pelo menos 2 cartas');
+      await alert({ message: 'Você precisa ter pelo menos 2 cartas' });
       return;
     }
 
@@ -350,7 +352,7 @@ export function Table({ room }: TableProps) {
           await goOut(room.id, scenarioCheck.scenario.melds, scenarioCheck.scenario.discardCard || null, scenarioCheck.scenario);
           setSelectedCards([]);
         } catch (error: any) {
-          alert(error.message || 'Erro ao bater');
+          await alert({ message: error.message || 'Erro ao bater' });
         } finally {
           setActionInProgress(false);
         }
@@ -360,14 +362,14 @@ export function Table({ room }: TableProps) {
 
     // Normal scenario: Player selects all cards except one to discard
     if (selectedCards.length === 0) {
-      alert('Selecione as cartas que formam suas combinações e deixe UMA carta para descartar');
+      await alert({ message: 'Selecione as cartas que formam suas combinações e deixe UMA carta para descartar' });
       return;
     }
 
     // The cards NOT selected will be the discard card
     const remainingCards = hand.cards.filter(c => !selectedCards.includes(c));
     if (remainingCards.length !== 1) {
-      alert('Você deve deixar exatamente UMA carta para descartar');
+      await alert({ message: 'Você deve deixar exatamente UMA carta para descartar' });
       return;
     }
 
@@ -411,7 +413,7 @@ export function Table({ room }: TableProps) {
         meldsToLay = foundMelds;
       } else {
         // Fallback: try to validate as single meld or show error
-        alert('As cartas selecionadas não formam combinações válidas. Tente selecionar cartas que formem sequências ou trincas.');
+        await alert({ message: 'As cartas selecionadas não formam combinações válidas. Tente selecionar cartas que formem sequências ou trincas.' });
         return;
       }
     }
@@ -419,7 +421,7 @@ export function Table({ room }: TableProps) {
     // Validate the melds
     const validation = validateMultipleMelds(selectedCards, meldsToLay);
     if (!validation.valid) {
-      alert(validation.error || 'Combinações inválidas');
+      await alert({ message: validation.error || 'Combinações inválidas' });
       return;
     }
 
@@ -428,7 +430,7 @@ export function Table({ room }: TableProps) {
       await goOut(room.id, meldsToLay, discardCardValue);
       setSelectedCards([]);
     } catch (error: any) {
-      alert(error.message || 'Erro ao bater');
+      await alert({ message: error.message || 'Erro ao bater' });
     } finally {
       setActionInProgress(false);
     }
@@ -594,7 +596,7 @@ export function Table({ room }: TableProps) {
       navigate('/');
     } catch (error: any) {
       console.error('Erro ao sair da sala:', error);
-      alert(error.message || 'Erro ao sair da partida');
+      await alert({ message: error.message || 'Erro ao sair da partida' });
     }
   };
 
@@ -602,7 +604,7 @@ export function Table({ room }: TableProps) {
     // Player must draw first before adding cards to melds
     if (!isMyTurn || !hasDrawn || actionInProgress) {
       if (!hasDrawn) {
-        alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
+        await alert({ message: 'Você precisa comprar uma carta primeiro (do monte ou do descarte)' });
       }
       return;
     }
@@ -617,7 +619,7 @@ export function Table({ room }: TableProps) {
       setSelectedCards([]);
       setSelectedCardIndices([]);
     } catch (error: any) {
-      alert(error.message || 'Erro ao adicionar carta à combinação');
+      await alert({ message: error.message || 'Erro ao adicionar carta à combinação' });
     } finally {
       setActionInProgress(false);
     }
