@@ -255,8 +255,8 @@ export function MobileGameLayout({
               )}
               {/* Chat Button */}
               <button
-                onClick={() => setChatOpen(true)}
-                className="relative p-1.5 md:p-2 lg:p-2.5 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors"
+                onClick={() => setChatOpen(!chatOpen)}
+                className="relative p-1.5 md:p-2 lg:p-2.5 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors z-50"
                 aria-label="Abrir chat"
                 title="Abrir chat"
               >
