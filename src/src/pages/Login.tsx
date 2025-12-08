@@ -1,5 +1,4 @@
 ﻿import { useState } from 'react';
-import { Gamepad2, Sparkles } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
 
 export function Login() {
@@ -26,31 +25,17 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
-
+    <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
       <div className="max-w-md w-full relative z-10">
-        {/* Logo and Title Section */}
+        {/* Logo Section */}
         <div className="text-center mb-10 animate-fade-in">
           <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white/20 rounded-full blur-xl"></div>
-              <div className="relative bg-white/10 backdrop-blur-sm p-6 rounded-full border-2 border-white/30">
-                <Gamepad2 className="text-white" size={64} strokeWidth={2} />
-              </div>
-            </div>
-          </div>
-          <h1 className="text-white text-5xl font-extrabold mb-3 drop-shadow-lg">
-            100 Pontinhos
-          </h1>
-          <div className="flex items-center justify-center gap-2 text-white/90">
-            <Sparkles size={18} className="text-yellow-300" />
-            <p className="text-lg font-medium">Jogue com seus amigos!</p>
-            <Sparkles size={18} className="text-yellow-300" />
+            <img 
+              src="/Gemini_Generated_Image.png" 
+              alt="100 Pontinhos" 
+              className="max-w-full h-auto rounded-lg shadow-lg"
+              style={{ maxHeight: '200px' }}
+            />
           </div>
         </div>
 
@@ -61,11 +46,6 @@ export function Login() {
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-cyan-400 to-teal-400" />
 
             <div className="px-6 pt-8 pb-6 text-center">
-              {/* Ícone */}
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-white shadow-md">
-                <Gamepad2 size={24} strokeWidth={2} />
-              </div>
-
               {/* Título */}
               <h2 className="text-2xl font-extrabold text-slate-900">Bem-vindo!</h2>
               <p className="mt-1 text-[15px] text-slate-600">Faça login para começar a jogar</p>
@@ -123,7 +103,7 @@ export function Login() {
         {/* Badge */}
         <div className="flex justify-center animate-slide-up">
           <div 
-            className="rounded-full border border-emerald-300/60 bg-white/60 text-[13px] text-emerald-800 backdrop-blur-sm"
+            className="rounded-full border border-gray-700 bg-gray-900 text-[13px] text-gray-300"
             style={{ padding: '12px 24px' }}
           >
             2-4 jogadores · Modo multiplayer
