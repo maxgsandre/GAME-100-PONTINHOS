@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Room } from './pages/Room';
 import { NotFound } from './pages/NotFound';
+import { DialogProvider } from './contexts/DialogContext';
 
 function App() {
   const [authLoading, setAuthLoading] = useState(true);
@@ -127,16 +128,18 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <div className="font-sans antialiased">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/room/:roomId" element={<Room />} />
-          <Route path="/404" element={<NotFound />} />
-          <Route path="*" element={<Navigate to="/404" replace />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <DialogProvider>
+      <BrowserRouter>
+        <div className="font-sans antialiased">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/room/:roomId" element={<Room />} />
+            <Route path="/404" element={<NotFound />} />
+            <Route path="*" element={<Navigate to="/404" replace />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </DialogProvider>
   );
 }
 
