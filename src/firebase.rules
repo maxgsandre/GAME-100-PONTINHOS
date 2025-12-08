@@ -76,8 +76,8 @@ service cloud.firestore {
           (isRoomOwner(roomId) && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(playerId)))
         );
         
-        // Only the player can read their own hand
-        allow read: if isAuthenticated() && request.auth.uid == playerId;
+        // Room members can read all hands (to show card count to all players)
+        allow read: if isAuthenticated() && isRoomMember(roomId);
         
         // Only the player can update their own hand
         allow update: if isAuthenticated() && request.auth.uid == playerId;
