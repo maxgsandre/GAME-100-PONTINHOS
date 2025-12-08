@@ -113,11 +113,11 @@ export function Table({ room }: TableProps) {
     prevHand.current = currentHand;
   }, [hand?.cards, hasDrawn, isMyTurn, hand, selectedCards]);
 
-  // Auto-select last card if player has 1 card (can go out by discarding)
+  // Auto-select last card if player has 1 card AND has drawn (can go out by discarding)
   // IMPORTANT: This must be before any conditional returns to follow React hooks rules
-  // Note: Player can discard even without drawing if they have only 1 card (e.g., after adding card to meld)
+  // Player must draw first before being able to discard
   useEffect(() => {
-    if (hand && hand.cards.length === 1 && isMyTurn) {
+    if (hand && hand.cards.length === 1 && hasDrawn && isMyTurn) {
       const lastCard = hand.cards[0];
       // Always select the last card - this allows the player to discard and automatically go out
       if (selectedCards.length !== 1 || !selectedCards.includes(lastCard)) {
@@ -125,7 +125,7 @@ export function Table({ room }: TableProps) {
         setSelectedCardIndices([0]);
       }
     }
-  }, [hand?.cards.length, isMyTurn]);
+  }, [hand?.cards.length, hasDrawn, isMyTurn]);
 
   const handleDrawStock = async () => {
     if (!isMyTurn || hasDrawn || actionInProgress) {
@@ -168,10 +168,9 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDiscard = async () => {
-    // Special case: If player has only 1 card, they can discard it even without drawing (e.g., after adding card to meld)
-    const hasOnlyOneCard = hand && hand.cards.length === 1;
-    if (!isMyTurn || (!hasDrawn && !hasOnlyOneCard) || selectedCards.length !== 1 || !hand || actionInProgress) {
-      if (!hasDrawn && !hasOnlyOneCard) {
+    // Player MUST draw first before being able to discard
+    if (!isMyTurn || !hasDrawn || selectedCards.length !== 1 || !hand || actionInProgress) {
+      if (!hasDrawn) {
         alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
       }
       return;
@@ -203,8 +202,11 @@ export function Table({ room }: TableProps) {
   const handleLayDownMelds = async (cardsToLay?: Card[]) => {
     const cards = cardsToLay || selectedCards;
     
-    if (!isMyTurn || cards.length < 3 || actionInProgress) {
-      if (cards.length < 3) {
+    // Player must draw first before laying down melds
+    if (!isMyTurn || !hasDrawn || cards.length < 3 || actionInProgress) {
+      if (!hasDrawn) {
+        alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
+      } else if (cards.length < 3) {
         alert('Selecione pelo menos 3 cartas para criar uma combinação');
       }
       return;
@@ -239,13 +241,20 @@ export function Table({ room }: TableProps) {
     const currentPlayer = players.find(p => p.id === userId);
     const isBlocked = currentPlayer?.isBlocked || false;
 
+    // "Bater!" button is only for pausing when it's NOT your turn
+    // When it's your turn, you automatically go out by discarding the last card
+    if (isMyTurn) {
+      alert('Na sua vez, você bate automaticamente ao descartar a última carta. Use o botão "Descartar".');
+      return;
+    }
+
     // If not player's turn and they're blocked, don't allow
-    if (!isMyTurn && isBlocked) {
+    if (isBlocked) {
       alert('Você está bloqueado. Só pode bater na sua vez.');
       return;
     }
 
-    // If not player's turn, try special scenarios
+    // If not player's turn, try special scenarios (pause and attempt to go out)
     if (!isMyTurn) {
       // Check if player can go out with special scenarios
       const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop);
@@ -541,7 +550,13 @@ export function Table({ room }: TableProps) {
   };
 
   const handleAddCardToMeld = async (meldId: string, card: Card) => {
-    if (!isMyTurn || actionInProgress) return;
+    // Player must draw first before adding cards to melds
+    if (!isMyTurn || !hasDrawn || actionInProgress) {
+      if (!hasDrawn) {
+        alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
+      }
+      return;
+    }
 
     try {
       setActionInProgress(true);
@@ -556,11 +571,6 @@ export function Table({ room }: TableProps) {
       setActionInProgress(false);
     }
   };
-
-  // Check if player can go out with layoff (adding cards to existing melds)
-  const canGoOutByLayoff = hand && melds.length > 0 
-    ? canGoOutWithLayoff(hand.cards, melds.map(m => ({ type: m.type, cards: m.cards })))
-    : false;
 
   return (
     <>
@@ -580,7 +590,6 @@ export function Table({ room }: TableProps) {
         hasDrawn={hasDrawn}
         rules={room.rules}
         roomId={room.id}
-        canGoOutByLayoff={canGoOutByLayoff}
         onBuyStock={handleDrawStock}
         onBuyDiscard={handleDrawDiscard}
         onCardSelect={handleCardSelect}
