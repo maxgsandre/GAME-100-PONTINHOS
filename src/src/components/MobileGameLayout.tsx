@@ -49,7 +49,8 @@ interface MobileGameLayoutProps {
 
 // Component for opponent hand (fanned cards facing center)
 function OpponentHand({ count, position }: { count: number; position: 'top' | 'bottom' | 'left' | 'right' }) {
-  const cards = Array.from({ length: Math.min(count, 9) }, (_, i) => i);
+  // Show actual card count (no limit)
+  const cards = Array.from({ length: count }, (_, i) => i);
   
   if (position === 'top' || position === 'bottom') {
     return (
@@ -293,7 +294,7 @@ export function MobileGameLayout({
         {/* Top Player - Leque colado no topo, avatar na frente */}
         {topPlayer && (
           <div className="absolute top-0 left-0 right-0 flex flex-col items-center z-10 pt-1 md:pt-2 lg:pt-3">
-            <OpponentHand count={topPlayer.handCount || 9} position="top" />
+            <OpponentHand count={topPlayer.handCount || 0} position="top" />
             <div className="mt-1 md:mt-2 lg:mt-3">
               <PlayerAvatar player={topPlayer} position="top" />
             </div>
@@ -303,7 +304,7 @@ export function MobileGameLayout({
         {/* Left Player - Movido para espaço vazio acima (retângulo amarelo) - mantendo formato vertical */}
         {leftPlayer && (
           <div className="absolute top-0 left-0 flex flex-col items-start z-10 pl-1 md:pl-2 lg:pl-4 pt-3 md:pt-4 lg:pt-6">
-            <OpponentHand count={leftPlayer.handCount || 9} position="left" />
+            <OpponentHand count={leftPlayer.handCount || 0} position="left" />
             <div className="ml-1 md:ml-2 lg:ml-3 mt-2 md:mt-3 lg:mt-4">
               <PlayerAvatar player={leftPlayer} position="left" />
             </div>
@@ -313,7 +314,7 @@ export function MobileGameLayout({
         {/* Right Player - Movido para espaço vazio acima (canto superior direito) - mantendo formato vertical */}
         {rightPlayer && (
           <div className="absolute right-0 top-0 flex flex-col items-end z-10 pr-1 md:pr-2 lg:pr-4 pt-3 md:pt-4 lg:pt-6">
-            <OpponentHand count={rightPlayer.handCount || 9} position="right" />
+            <OpponentHand count={rightPlayer.handCount || 0} position="right" />
             <div className="mr-1 md:mr-2 lg:mr-3 mt-2 md:mt-3 lg:mt-4">
               <PlayerAvatar player={rightPlayer} position="right" />
             </div>
