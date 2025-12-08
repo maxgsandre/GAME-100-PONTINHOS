@@ -341,7 +341,7 @@ export const canAddCardToMeld = (card: Card, meld: Meld): boolean => {
 
 // Check if player can go out with special scenarios (for going out out of turn)
 export interface GoOutScenario {
-  type: 'normal' | 'scenario1' | 'scenario2' | 'scenario3';
+  type: 'normal' | 'scenario1' | 'scenario2' | 'scenario3' | 'pickupDiscard';
   melds: Meld[];
   discardCard?: Card; // Card to discard (undefined for scenario 1)
   randomCard?: Card; // Random card that becomes discard (scenario 2)
@@ -458,16 +458,13 @@ export const canGoOutWithScenarios = (
     const allPossibleMelds = findAllMelds(hand);
     const used = new Set<Card>();
     const foundMelds: Meld[] = [];
-    
     const sortedMelds = allPossibleMelds.sort((a, b) => b.cards.length - a.cards.length);
-    
     for (const meld of sortedMelds) {
       if (meld.cards.every(card => !used.has(card))) {
         foundMelds.push(meld);
         meld.cards.forEach(card => used.add(card));
       }
     }
-    
     if (used.size === hand.length) {
       const validation = validateMultipleMelds(hand, foundMelds);
       if (validation.valid) {
@@ -476,12 +473,46 @@ export const canGoOutWithScenarios = (
           scenario: {
             type: 'normal',
             melds: foundMelds,
-            // No discard card - but this is only valid in scenario 1, which is already checked above
           },
         };
       }
     }
   }
 
-  return { canGoOut: false, error: 'Não é possível bater com essas cartas' };
-};
+  // Off-turn: pickup discardTop to go out (must use discardTop in melds)
+  if (discardTop) {
+    const merged = [...hand, discardTop];
+    for (let discardIdx = -1; discardIdx < merged.length; discardIdx++) {
+      const discardCard = discardIdx >= 0 ? merged[discardIdx] : null;
+      const cardsForMelds = merged.filter((_, idx) => idx !== discardIdx);
+      if (!cardsForMelds.includes(discardTop)) continue;
+
+      const allMelds = findAllMelds(cardsForMelds);
+      const used = new Set<Card>();
+      const found: Meld[] = [];
+      const sorted = allMelds.sort((a, b) => b.cards.length - a.cards.length);
+      for (const meld of sorted) {
+        if (meld.cards.every(c => !used.has(c))) {
+          found.push(meld);
+          meld.cards.forEach(c => used.add(c));
+        }
+      }
+      if (used.size === cardsForMelds.length) {
+        const validation = validateMultipleMelds(cardsForMelds, found);
+        if (validation.valid) {
+          return {
+            canGoOut: true,
+            scenario: {
+              type: 'pickupDiscard',
+              melds: found,
+              discardCard: discardCard || undefined,
+              usesDiscardTop: true,
+            },
+          };
+        }
+      }
+    }
+  }
+
+  return { canGoOut: false, error: 'N?o foi poss?vel bater com essas cartas' };
+}
