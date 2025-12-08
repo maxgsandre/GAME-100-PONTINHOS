@@ -515,12 +515,11 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
       // Reset all player blocks and hasDrawnThisTurn for next round
       playerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
-          const playerData = playerDoc.data();
-          const updates: any = {};
+          const playerData = playerDoc.data() as Player;
+          const updates: any = { hasDrawnThisTurn: false };
           if (playerData && playerData.isBlocked) {
             updates.isBlocked = false;
           }
-          updates.hasDrawnThisTurn = false;
           transaction.update(allPlayerRefs[index].ref, updates);
         }
       });

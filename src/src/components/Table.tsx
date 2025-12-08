@@ -22,7 +22,7 @@ import {
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
-import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios, canGoOutWithLayoff } from '../lib/rules';
+import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios } from '../lib/rules';
 import { useNavigate } from 'react-router-dom';
 
 interface TableProps {
