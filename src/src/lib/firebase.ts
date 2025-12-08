@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, Auth, User } from 'firebase/auth';
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, Auth, User, signOut } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -97,6 +97,16 @@ export const getCurrentUserData = (): { name: string; photoURL: string | null } 
     name: firstName,
     photoURL: user.photoURL || null,
   };
+};
+
+// Sign out user
+export const signOutUser = async (): Promise<void> => {
+  try {
+    await signOut(auth);
+  } catch (error: any) {
+    console.error('❌ Error signing out:', error);
+    throw error;
+  }
 };
 
 // Wait for auth to initialize
