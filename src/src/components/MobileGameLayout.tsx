@@ -35,6 +35,7 @@ interface MobileGameLayoutProps {
   hasDrawn: boolean;
   rules?: GameRules;
   roomId: string;
+  pauseProgressByPlayer?: Record<string, number>;
   onBuyStock: () => void;
   onBuyDiscard: () => void;
   onCardSelect: (card: Card, index?: number) => void;
@@ -88,15 +89,24 @@ function OpponentHand({ count, position }: { count: number; position: 'top' | 'b
 }
 
 // Component for player avatar with score
-function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 'bottom' | 'left' | 'right' }) {
+function PlayerAvatar({ player, position, pauseProgress }: { player: Player; position: 'top' | 'bottom' | 'left' | 'right'; pauseProgress?: number }) {
   const isVertical = position === 'left' || position === 'right';
   const isTurn = player.isTurn;
   const isBlocked = player.isBlocked || false;
+  const progress = pauseProgress !== undefined ? Math.min(1, Math.max(0, pauseProgress)) : null;
   
   if (isVertical) {
     return (
       <div className={`flex flex-col items-center gap-1 relative`}>
         <div className="relative">
+          {progress !== null && (
+            <div
+              className="absolute inset-[-6px] rounded-full"
+              style={{
+                background: `conic-gradient(#22c55e ${progress * 100}%, rgba(255,255,255,0.12) 0%)`
+              }}
+            />
+          )}
           {player.photoURL ? (
             <img
               src={player.photoURL}
@@ -126,6 +136,14 @@ function PlayerAvatar({ player, position }: { player: Player; position: 'top' | 
     return (
       <div className={`flex ${position === 'top' ? 'flex-col items-center gap-1' : 'flex-col-reverse items-center gap-1'} relative`}>
         <div className="relative">
+          {progress !== null && (
+            <div
+              className="absolute inset-[-6px] rounded-full"
+              style={{
+                background: `conic-gradient(#22c55e ${progress * 100}%, rgba(255,255,255,0.12) 0%)`
+              }}
+            />
+          )}
           {player.photoURL ? (
             <img
               src={player.photoURL}
@@ -181,7 +199,7 @@ export function MobileGameLayout({
   const [messageCount, setMessageCount] = useState(0);
 
   // Separate players by position
-  const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
+const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   const bottomPlayer = players.find(p => (p.position === 'bottom' || p.isYou));
   const leftPlayer = players.find(p => p.position === 'left' && !p.isYou);
   const rightPlayer = players.find(p => p.position === 'right' && !p.isYou);
@@ -284,7 +302,7 @@ export function MobileGameLayout({
           <div className="absolute top-0 left-0 right-0 flex flex-col items-center z-10 pt-1 md:pt-2 lg:pt-3">
             <OpponentHand count={topPlayer.handCount || 0} position="top" />
             <div className="mt-1 md:mt-2 lg:mt-3">
-              <PlayerAvatar player={topPlayer} position="top" />
+              <PlayerAvatar player={topPlayer} position="top"  pauseProgress={pauseProgressByPlayer?.[topPlayer.id]} />
             </div>
           </div>
         )}
@@ -294,7 +312,7 @@ export function MobileGameLayout({
           <div className="absolute top-0 left-0 flex flex-col items-start z-10 pl-1 md:pl-2 lg:pl-4 pt-3 md:pt-4 lg:pt-6">
             <OpponentHand count={leftPlayer.handCount || 0} position="left" />
             <div className="ml-1 md:ml-2 lg:ml-3 mt-2 md:mt-3 lg:mt-4">
-              <PlayerAvatar player={leftPlayer} position="left" />
+              <PlayerAvatar player={leftPlayer} position="left"  pauseProgress={pauseProgressByPlayer?.[leftPlayer.id]} />
             </div>
           </div>
         )}
@@ -304,7 +322,7 @@ export function MobileGameLayout({
           <div className="absolute right-0 top-0 flex flex-col items-end z-10 pr-1 md:pr-2 lg:pr-4 pt-3 md:pt-4 lg:pt-6">
             <OpponentHand count={rightPlayer.handCount || 0} position="right" />
             <div className="mr-1 md:mr-2 lg:mr-3 mt-2 md:mt-3 lg:mt-4">
-              <PlayerAvatar player={rightPlayer} position="right" />
+              <PlayerAvatar player={rightPlayer} position="right"  pauseProgress={pauseProgressByPlayer?.[rightPlayer.id]} />
             </div>
           </div>
         )}
@@ -362,7 +380,7 @@ export function MobileGameLayout({
               
               {/* Player Avatar - Centro */}
               <div>
-                <PlayerAvatar player={bottomPlayer} position="bottom" />
+                <PlayerAvatar player={bottomPlayer} position="bottom"  pauseProgress={pauseProgressByPlayer?.[bottomPlayer.id]} />
               </div>
               
               {/* Botão Bater! - Direita */}
