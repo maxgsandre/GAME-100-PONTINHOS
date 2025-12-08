@@ -17,6 +17,7 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [lastViewedCount, setLastViewedCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { userId } = useAppStore();
 
@@ -40,12 +41,22 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Notify parent of message count changes
+  // When chat opens, mark all current messages as viewed
+  useEffect(() => {
+    if (isOpen) {
+      setLastViewedCount(messages.length);
+    }
+  }, [isOpen, messages.length]);
+
+  // Calculate unread message count
+  const unreadCount = messages.length > lastViewedCount ? messages.length - lastViewedCount : 0;
+
+  // Notify parent of unread message count changes
   useEffect(() => {
     if (onMessageCountChange) {
-      onMessageCountChange(messages.length);
+      onMessageCountChange(unreadCount);
     }
-  }, [messages.length, onMessageCountChange]);
+  }, [unreadCount, onMessageCountChange]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,9 +94,9 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
         aria-label="Abrir chat"
       >
         <MessageSquare size={24} />
-        {messages.length > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-            {messages.length}
+            {unreadCount}
           </span>
         )}
       </button>
@@ -93,21 +104,30 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
   }
 
   return (
-    <div className={`fixed bottom-4 right-4 w-80 h-96 bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200 ${className}`}>
-      {/* Header */}
-      <div className="bg-green-600 text-white p-3 rounded-t-lg flex justify-between items-center">
-        <h3 className="font-semibold flex items-center gap-2">
-          <MessageSquare size={20} />
-          Chat
-        </h3>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="hover:bg-green-700 rounded px-2 py-1 transition-colors"
-          aria-label="Fechar chat"
-        >
-          ✕
-        </button>
-      </div>
+    <>
+      {/* Overlay para fechar ao clicar fora */}
+      <div
+        className="fixed inset-0 bg-black/20 z-[9998]"
+        onClick={() => setIsOpen(false)}
+      />
+      <div className={`fixed bottom-4 right-4 w-80 h-96 bg-white rounded-lg shadow-2xl flex flex-col border border-gray-200 z-[9999] ${className}`}>
+        {/* Header */}
+        <div className="bg-green-600 text-white p-3 rounded-t-lg flex justify-between items-center">
+          <h3 className="font-semibold flex items-center gap-2">
+            <MessageSquare size={20} />
+            Chat
+          </h3>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+            className="hover:bg-green-700 rounded px-2 py-1 transition-colors"
+            aria-label="Fechar chat"
+          >
+            ✕
+          </button>
+        </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
@@ -156,7 +176,8 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Digite uma mensagem..."
             maxLength={200}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm text-gray-900 placeholder:text-gray-400"
+            style={{ color: '#111827' }}
             disabled={sending}
           />
           <button
@@ -170,6 +191,7 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
         </div>
       </form>
     </div>
+    </>
   );
 }
 
