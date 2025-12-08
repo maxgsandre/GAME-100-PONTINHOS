@@ -42,6 +42,7 @@ export interface Player {
   score: number;
   isReady: boolean;
   isBlocked?: boolean; // True if player tried to go out and failed (can only go out on their turn)
+  hasDrawnThisTurn?: boolean; // True if player has drawn a card in current turn
 }
 
 export interface Hand {
@@ -235,13 +236,17 @@ export const startGame = async (roomId: string): Promise<void> => {
       isPaused: false,
     });
 
-    // Reset all player blocks for new round
-    playerDocs.forEach((playerDoc) => {
-      const playerData = playerDoc.data();
-      if (playerData && playerData.isBlocked && playerDoc.ref) {
-        transaction.update(playerDoc.ref, { isBlocked: false });
-      }
-    });
+      // Reset all player blocks and hasDrawnThisTurn for new round
+      playerDocs.forEach((playerDoc) => {
+        const playerData = playerDoc.data();
+        if (playerDoc.ref) {
+          const updates: any = { hasDrawnThisTurn: false };
+          if (playerData && playerData.isBlocked) {
+            updates.isBlocked = false;
+          }
+          transaction.update(playerDoc.ref, updates);
+        }
+      });
 
     // Create hands
     for (const playerId of playerOrder) {
@@ -307,6 +312,12 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
       stock: newStock,
     });
 
+    // Mark that player has drawn this turn
+    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+    transaction.update(playerRef, {
+      hasDrawnThisTurn: true,
+    });
+
     transaction.update(roomRef, {
       lastAction: 'Comprou do monte',
     });
@@ -370,6 +381,12 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
       discard: newDiscard,
     });
 
+    // Mark that player has drawn this turn
+    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+    transaction.update(playerRef, {
+      hasDrawnThisTurn: true,
+    });
+
     transaction.update(roomRef, {
       discardTop: newDiscardTop,
       lastAction: 'Comprou do descarte',
@@ -396,6 +413,14 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
     const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
     if (currentPlayerId !== userId) {
       throw new Error('Não é seu turno');
+    }
+
+    // Verify player has drawn a card this turn
+    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+    const playerDoc = await transaction.get(playerRef);
+    const playerData = playerDoc.data() as Player;
+    if (!playerData?.hasDrawnThisTurn) {
+      throw new Error('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
     }
 
     // Remove from player's hand
@@ -430,11 +455,38 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
       throw new Error('Após descartar, você deve ter no máximo 9 cartas. Baixe combinações primeiro.');
     }
 
-    // Add to discard pile
+    // ALL READS MUST BE DONE BEFORE ANY WRITES
+    // Read deck state
     const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
     const deckDoc = await transaction.get(deckRef);
     const deckData = deckDoc.data() as DeckState;
 
+    // Read all player documents that might need updates
+    const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+    if (newHand.length === 0) {
+      // If going out, need to read all players
+      for (const playerId of roomData.playerOrder) {
+        allPlayerRefs.push({
+          ref: doc(db, 'rooms', roomId, 'players', playerId),
+          id: playerId,
+        });
+      }
+    } else {
+      // If not going out, need to read current and next player
+      const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+      const nextPlayerId = roomData.playerOrder[nextTurnIndex];
+      allPlayerRefs.push(
+        { ref: doc(db, 'rooms', roomId, 'players', userId), id: userId },
+        { ref: doc(db, 'rooms', roomId, 'players', nextPlayerId), id: nextPlayerId }
+      );
+    }
+    
+    // Read all player documents
+    const playerDocs = await Promise.all(
+      allPlayerRefs.map(({ ref }) => transaction.get(ref))
+    );
+
+    // NOW ALL WRITES - After all reads are complete
     transaction.update(handRef, {
       cards: newHand,
     });
@@ -445,6 +497,11 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
 
     // If player has no cards left after discarding, they go out (bater)
     if (newHand.length === 0) {
+      // Reset hasDrawnThisTurn for current player (they finished their turn by going out)
+      transaction.update(allPlayerRefs[0].ref, {
+        hasDrawnThisTurn: false,
+      });
+      
       // Player goes out by discarding last card
       transaction.update(roomRef, {
         status: 'roundEnd',
@@ -455,20 +512,31 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
         pausedBy: deleteField(),
       });
       
-      // Reset all player blocks for next round
-      for (const playerId of roomData.playerOrder) {
-        const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
-        const playerDoc = await transaction.get(playerRef);
+      // Reset all player blocks and hasDrawnThisTurn for next round
+      playerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
           const playerData = playerDoc.data();
+          const updates: any = {};
           if (playerData && playerData.isBlocked) {
-            transaction.update(playerRef, { isBlocked: false });
+            updates.isBlocked = false;
           }
+          updates.hasDrawnThisTurn = false;
+          transaction.update(allPlayerRefs[index].ref, updates);
         }
-      }
+      });
     } else {
       // Move to next player
       const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+      
+      // Reset hasDrawnThisTurn for current player (they finished their turn)
+      transaction.update(allPlayerRefs[0].ref, {
+        hasDrawnThisTurn: false,
+      });
+      
+      // Reset hasDrawnThisTurn for next player (starting their turn)
+      transaction.update(allPlayerRefs[1].ref, {
+        hasDrawnThisTurn: false,
+      });
       
       // Check if first pass is complete (all players have played once)
       // When nextTurnIndex becomes 0, it means we've completed a full cycle
