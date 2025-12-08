@@ -173,6 +173,30 @@ export const canGoOut = (cards: Card[], melds: Meld[]): boolean => {
   return meldedCards === cards.length - 1;
 };
 
+// Check if player can go out by adding cards to existing melds (layoff)
+export const canGoOutWithLayoff = (hand: Card[], existingMelds: Meld[]): boolean => {
+  if (hand.length === 0) return false;
+  
+  // If player has only 1 card, they can go out by discarding it (after adding all others to melds)
+  if (hand.length === 1) return true;
+  
+  // Try to see if we can add cards to existing melds and have exactly 1 card left
+  // For each card in hand, check if it can be added to any existing meld
+  const cardsThatCanBeAdded: Card[] = [];
+  
+  for (const card of hand) {
+    for (const meld of existingMelds) {
+      if (canAddCardToMeld(card, meld)) {
+        cardsThatCanBeAdded.push(card);
+        break; // Card can be added to at least one meld
+      }
+    }
+  }
+  
+  // If we can add (hand.length - 1) cards to melds, we can go out (1 card left to discard)
+  return cardsThatCanBeAdded.length >= hand.length - 1;
+};
+
 // Validate multiple melds don't overlap and cover all cards
 export const validateMultipleMelds = (cards: Card[], melds: Meld[]): { valid: boolean; error?: string } => {
   if (melds.length === 0) {
