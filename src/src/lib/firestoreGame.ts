@@ -301,6 +301,13 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
 
     // If hand is already empty (e.g., após encostar todas as cartas em melds), finalizar rodada.
     if (handData.cards.length === 0) {
+      // Read all player documents to reset blocks
+      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+      for (const playerId of roomData.playerOrder) {
+        allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
+      }
+      const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+
       transaction.update(roomRef, {
         status: 'roundEnd',
         discardTop: roomData.discardTop,
@@ -309,11 +316,16 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
         isPaused: false,
         pausedBy: deleteField(),
       });
-      // reset blocks
-      const playersSnapshot = await transaction.get(query(collection(db, 'rooms', roomId, 'players')));
-      playersSnapshot.forEach((playerDoc) => {
-        if (playerDoc.data().isBlocked) {
-          transaction.update(playerDoc.ref, { isBlocked: false });
+      
+      // Reset all player blocks and hasDrawnThisTurn for next round
+      playerDocs.forEach((playerDoc, index) => {
+        if (playerDoc.exists()) {
+          const playerData = playerDoc.data() as Player;
+          const updates: any = { hasDrawnThisTurn: false };
+          if (playerData && playerData.isBlocked) {
+            updates.isBlocked = false;
+          }
+          transaction.update(allPlayerRefs[index].ref, updates);
         }
       });
       return;
