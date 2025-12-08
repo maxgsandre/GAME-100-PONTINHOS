@@ -626,6 +626,9 @@ export const attemptGoOut = async (
       const roomRef = doc(db, 'rooms', roomId);
       const roomDoc = await transaction.get(roomRef);
       const roomData = roomDoc.data() as Room;
+      const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+      const deckDoc = await transaction.get(deckRef);
+      const deckData = deckDoc.data() as DeckState;
 
       // Get player's hand
       const handRef = doc(db, 'rooms', roomId, 'hands', userId);
@@ -657,6 +660,7 @@ export const attemptGoOut = async (
       // Validate scenario
       let finalHand = [...handData.cards];
       let discardCard: Card | null = null;
+      let discardTopCard: Card | null = null;
 
       if (scenario.type === 'scenario1') {
         // Scenario 1: 2 cards + discard forms set, no discard needed
@@ -696,6 +700,50 @@ export const attemptGoOut = async (
         // Remove hand cards (except random card which becomes discard)
         finalHand = finalHand.filter(c => !handCardsNeeded.includes(c));
         discardCard = scenario.discardCard || null; // Random card becomes discard
+      } else if (scenario.type === 'pickupDiscard') {
+        // Off-turn pickup from discard to go out
+        discardTopCard = roomData.discardTop;
+        if (!discardTopCard) {
+          throw new Error('Sem carta no descarte para usar ao bater');
+        }
+
+        if (!deckData.discard.length || deckData.discard[deckData.discard.length - 1] !== discardTopCard) {
+          throw new Error('Estado do descarte inconsistente');
+        }
+
+        // Remove topo do descarte
+        const newDiscard = deckData.discard.slice(0, -1);
+        transaction.update(deckRef, { discard: newDiscard, discardTop: newDiscard.length ? newDiscard[newDiscard.length - 1] : null });
+
+        // Incluir a carta do descarte na mão para validação
+        finalHand = [...finalHand, discardTopCard];
+
+        const allMeldCards = scenario.melds.flatMap(m => m.cards);
+        // Certificar que a carta do descarte está sendo usada
+        if (!allMeldCards.includes(discardTopCard)) {
+          throw new Error('Carta do descarte deve ser usada para bater');
+        }
+
+        // Verificar multiconjunto
+        const temp = [...finalHand];
+        for (const c of allMeldCards) {
+          const idx = temp.indexOf(c);
+          if (idx === -1) throw new Error('Você não tem todas essas cartas (descarte + mão)');
+          temp.splice(idx, 1);
+        }
+
+        discardCard = scenario.discardCard || null;
+
+        // Se houver carta de descarte, ela deve estar na mão remanescente
+        if (discardCard) {
+          const idx = temp.indexOf(discardCard);
+          if (idx === -1) {
+            throw new Error('Carta de descarte não encontrada na mão');
+          }
+          temp.splice(idx, 1);
+        }
+
+        finalHand = temp;
       } else {
         // Normal scenario or scenario 3
         if (!scenario.discardCard) {
