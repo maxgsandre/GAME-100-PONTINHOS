@@ -581,6 +581,8 @@ export function Table({ room }: TableProps) {
       // After adding card to meld, if hand has only 1 card left and player has drawn,
       // automatically select that card so they can discard and go out
       // Note: hand will be updated via subscription, so we check in a useEffect
+      setSelectedCards([]);
+      setSelectedCardIndices([]);
     } catch (error: any) {
       alert(error.message || 'Erro ao adicionar carta à combinação');
     } finally {
