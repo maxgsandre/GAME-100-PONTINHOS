@@ -4,10 +4,12 @@ import { Users, Plus, DoorOpen, Key, LogOut } from 'lucide-react';
 import { createRoom, joinRoom } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { signOutUser } from '../lib/firebase';
+import { useDialog } from '../contexts/DialogContext';
 
 export function Home() {
   const navigate = useNavigate();
   const { setCurrentRoomId, setPlayerName } = useAppStore();
+  const { confirm, alert } = useDialog();
 
   const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
   const [code, setCode] = useState('');
@@ -59,12 +61,24 @@ export function Home() {
   };
 
   const handleLogout = async () => {
-    if (window.confirm('Tem certeza que deseja sair?')) {
+    const confirmed = await confirm({
+      title: 'Confirmar saída',
+      message: 'Tem certeza que deseja sair?',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+      variant: 'destructive',
+    });
+    
+    if (confirmed) {
       try {
         await signOutUser();
         navigate('/login');
       } catch (err: any) {
-        alert('Erro ao fazer logout: ' + err.message);
+        await alert({
+          title: 'Erro',
+          message: 'Erro ao fazer logout: ' + err.message,
+          variant: 'destructive',
+        });
       }
     }
   };
