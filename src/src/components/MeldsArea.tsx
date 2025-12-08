@@ -86,36 +86,41 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   return (
     <div
       ref={areaRef}
-      className="absolute top-[340px] md:top-[420px] lg:top-[500px] left-0 right-0 bottom-[90px] md:bottom-[118px] lg:bottom-[146px] flex items-center justify-center z-[30] pointer-events-none"
+      className="absolute top-[340px] md:top-[420px] lg:top-[500px] left-0 right-0 bottom-[180px] md:bottom-[220px] lg:bottom-[260px] flex flex-col z-[30] pointer-events-none"
     >
-      <div className="w-full h-full mx-2 md:mx-4 lg:mx-6 my-2 md:my-4 lg:my-6 overflow-y-auto overflow-x-hidden pointer-events-auto">
-        <div className="flex flex-row flex-wrap gap-4 md:gap-5 lg:gap-6 items-start justify-center">
-          {/* Zona de drop vazia para criar novas combinações - sempre visível quando é minha vez */}
-          {isMyTurn && (
-            <div
-              onDragOver={handleEmptyDragOver}
-              onDragLeave={handleEmptyDragLeave}
-              onDrop={handleEmptyDrop}
-              data-testid="meld-drop-zone"
-              className={`
-                w-full min-h-[80px] md:min-h-[100px] lg:min-h-[120px] rounded-lg md:rounded-xl border-2 border-dashed
-                flex items-center justify-center cursor-pointer relative z-[31]
-                ${dragOverEmpty 
-                  ? 'bg-emerald-500/40 border-emerald-400' 
-                  : 'bg-emerald-900/30 border-emerald-700/70 hover:bg-emerald-900/40'
-                }
-                transition-colors
-              `}
-              title="Arraste cartas selecionadas aqui para criar combinacao"
-              style={{ pointerEvents: 'auto' }}
-            >
-              {dragOverEmpty ? (
-                <p className="text-emerald-300 text-sm md:text-base font-semibold">Solte aqui para criar combinacao</p>
-              ) : (
-                <p className="text-emerald-400/80 text-xs md:text-sm font-medium">Arraste cartas selecionadas aqui para criar combinacao</p>
-              )}
-            </div>
-          )}
+      {/* Zona de drop vazia para criar novas combinações - FIXA NO TOPO, fora do scroll */}
+      {isMyTurn && (
+        <div className="flex-shrink-0 mx-2 md:mx-4 lg:mx-6 mb-2 md:mb-3 lg:mb-4 pointer-events-auto">
+          <div
+            onDragOver={handleEmptyDragOver}
+            onDragLeave={handleEmptyDragLeave}
+            onDrop={handleEmptyDrop}
+            data-testid="meld-drop-zone"
+            className={`
+              w-full min-h-[80px] md:min-h-[100px] lg:min-h-[120px] rounded-lg md:rounded-xl border-2 border-dashed
+              flex items-center justify-center cursor-pointer relative z-[31]
+              ${dragOverEmpty 
+                ? 'bg-emerald-500/40 border-emerald-400' 
+                : 'bg-emerald-900/30 border-emerald-700/70 hover:bg-emerald-900/40'
+              }
+              transition-colors
+            `}
+            title="Arraste cartas selecionadas aqui para criar combinacao"
+            style={{ pointerEvents: 'auto' }}
+          >
+            {dragOverEmpty ? (
+              <p className="text-emerald-300 text-xs md:text-sm font-semibold text-center px-2">Solte aqui para criar combinacao</p>
+            ) : (
+              <p className="text-emerald-400/80 text-xs md:text-sm font-medium text-center px-2">Arraste cartas selecionadas aqui para criar combinacao</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Container com scroll horizontal APENAS para combinações - abaixo da zona de drop */}
+      {/* Se combinações forem muito grandes, permite scroll vertical também para não sobrepor os botões */}
+      <div className="flex-1 mx-2 md:mx-4 lg:mx-6 overflow-x-auto overflow-y-auto pointer-events-auto">
+        <div className="flex flex-row gap-4 md:gap-5 lg:gap-6 items-start justify-start min-w-max">
 
           {/* Combinações existentes - Layout em linha, cada meld em um card container */}
           {melds.map((meld) => {
@@ -129,7 +134,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, meld.id)}
                 className={`
-                  flex flex-col items-center gap-2 md:gap-3 px-2 md:px-3 lg:px-4 py-3 md:py-4
+                  flex-shrink-0 flex flex-col items-center gap-2 md:gap-3 px-2 md:px-3 lg:px-4 py-3 md:py-4
                   ${isDragOver ? 'bg-emerald-500/20 border-2 border-emerald-400' : 'bg-transparent border border-transparent'}
                   transition-colors
                 `}
