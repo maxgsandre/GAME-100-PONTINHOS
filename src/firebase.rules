@@ -103,8 +103,13 @@ service cloud.firestore {
         // Room members can create melds
         allow create: if isAuthenticated() && isRoomMember(roomId);
         
-        // No updates or deletes in MVP
-        allow update, delete: if false;
+        // Allow adding cards to existing meld (layoff) - only append cards, keep owner
+        allow update: if isAuthenticated() && isRoomMember(roomId) &&
+          request.resource.data.ownerUid == resource.data.ownerUid &&
+          request.resource.data.cards.size() == resource.data.cards.size() + 1;
+        
+        // Still block deletes
+        allow delete: if false;
       }
       
       // Chat subcollection (optional)
