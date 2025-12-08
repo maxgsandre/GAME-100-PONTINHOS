@@ -443,19 +443,44 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
       discard: [...deckData.discard, card],
     });
 
-    // Move to next player
-    const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
-    
-    // Check if first pass is complete (all players have played once)
-    // When nextTurnIndex becomes 0, it means we've completed a full cycle
-    const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
+    // If player has no cards left after discarding, they go out (bater)
+    if (newHand.length === 0) {
+      // Player goes out by discarding last card
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        discardTop: card,
+        winnerId: userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
+      
+      // Reset all player blocks for next round
+      for (const playerId of roomData.playerOrder) {
+        const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+        const playerDoc = await transaction.get(playerRef);
+        if (playerDoc.exists()) {
+          const playerData = playerDoc.data();
+          if (playerData && playerData.isBlocked) {
+            transaction.update(playerRef, { isBlocked: false });
+          }
+        }
+      }
+    } else {
+      // Move to next player
+      const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+      
+      // Check if first pass is complete (all players have played once)
+      // When nextTurnIndex becomes 0, it means we've completed a full cycle
+      const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
 
-    transaction.update(roomRef, {
-      discardTop: card,
-      turnIndex: nextTurnIndex,
-      lastAction: 'Descartou uma carta',
-      firstPassComplete: firstPassComplete,
-    });
+      transaction.update(roomRef, {
+        discardTop: card,
+        turnIndex: nextTurnIndex,
+        lastAction: 'Descartou uma carta',
+        firstPassComplete: firstPassComplete,
+      });
+    }
   });
 };
 
