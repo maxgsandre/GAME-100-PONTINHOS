@@ -135,7 +135,7 @@ export function RoundEnd({ room }: RoundEndProps) {
               <Trophy className="text-yellow-500" size={64} />
             </div>
             <h1 className="text-green-700 mb-2">Fim da Rodada {room.round}!</h1>
-            <p className="text-xl">
+            <p className="text-xl text-gray-900 font-semibold">
               {winner?.name} bateu! 🎉
             </p>
           </div>
@@ -153,7 +153,7 @@ export function RoundEnd({ room }: RoundEndProps) {
                 `}
                 >
                   <div>
-                    <p>
+                    <p className="text-gray-900 font-semibold">
                       {score.playerName}
                       {score.playerId === userId && ' (Você)'}
                     </p>
