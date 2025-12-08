@@ -587,7 +587,15 @@ export function Table({ room }: TableProps) {
   };
 
   const handleLeaveRoom = async () => {
-    if (!confirm('Tem certeza que deseja sair da partida?')) {
+    const confirmed = await confirm({
+      title: 'Confirmar saída',
+      message: 'Tem certeza que deseja sair da partida?',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+      variant: 'destructive',
+    });
+    
+    if (!confirmed) {
       return;
     }
 

@@ -19,7 +19,7 @@ interface RoundEndProps {
 }
 
 export function RoundEnd({ room }: RoundEndProps) {
-  const { alert } = useDialog();
+  const { confirm, alert } = useDialog();
   const userId = useAppStore(state => state.userId);
   const [players, setPlayers] = useState<Player[]>([]);
   const [hands, setHands] = useState<Record<string, Hand>>({});
@@ -97,7 +97,15 @@ export function RoundEnd({ room }: RoundEndProps) {
   const handleResetScores = async () => {
     if (!isOwner || processing) return;
 
-    if (!confirm('Tem certeza que deseja reiniciar o placar?')) return;
+    const confirmed = await confirm({
+      title: 'Confirmar reinício',
+      message: 'Tem certeza que deseja reiniciar o placar?',
+      confirmText: 'Reiniciar',
+      cancelText: 'Cancelar',
+      variant: 'destructive',
+    });
+    
+    if (!confirmed) return;
 
     try {
       setProcessing(true);
