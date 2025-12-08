@@ -1,5 +1,5 @@
 ﻿import { MeldDoc } from '../lib/firestoreGame';
-import { Card, parseCard, SUIT_SYMBOLS, SUIT_COLORS } from '../lib/deck';
+import { Card, parseCard, SUIT_SYMBOLS, SUIT_COLORS, getRankValue } from '../lib/deck';
 import { useState, useRef } from 'react';
 
 interface MeldsAreaProps {
@@ -18,6 +18,35 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
 
   const getPlayer = (uid: string) => {
     return players.find(p => p.id === uid);
+  };
+
+  // Ordena visualmente as cartas: sequências em ordem crescente; trincas alternando vermelho/preto sempre que possível.
+  const getDisplayCards = (meld: MeldDoc): Card[] => {
+    if (meld.type === 'sequence') {
+      // Ordenar do maior para o menor (mais altas em cima)
+      return [...meld.cards].sort((a, b) => {
+        const ra = getRankValue(parseCard(a).rank);
+        const rb = getRankValue(parseCard(b).rank);
+        return rb - ra;
+      });
+    }
+
+    const reds: Card[] = [];
+    const blacks: Card[] = [];
+    meld.cards.forEach((card) => {
+      const color = SUIT_COLORS[parseCard(card).suit];
+      if (color === 'red') reds.push(card);
+      else blacks.push(card);
+    });
+
+    const ordered: Card[] = [];
+    const maxLen = Math.max(reds.length, blacks.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < reds.length) ordered.push(reds[i]);
+      if (i < blacks.length) ordered.push(blacks[i]);
+    }
+
+    return ordered.length > 0 ? ordered : [...meld.cards];
   };
 
 
@@ -158,7 +187,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
 
                 {/* Cards - Layout vertical (coluna) estilo paciência com sobreposição */}
                 <div className="flex flex-col items-center relative" style={{ minHeight: `${meld.cards.length * 20 + 100}px`, width: '100%' }}>
-                  {meld.cards.map((card, index) => {
+                  {getDisplayCards(meld).map((card, index) => {
                     const { rank, suit } = parseCard(card);
                     const rankDisplay = rank === 'T' ? '10' : rank;
                     const suitSymbol = SUIT_SYMBOLS[suit];
