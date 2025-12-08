@@ -89,7 +89,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
       className="absolute top-[340px] md:top-[420px] lg:top-[500px] left-0 right-0 bottom-[90px] md:bottom-[118px] lg:bottom-[146px] flex items-center justify-center z-[30] pointer-events-none"
     >
       <div className="w-full h-full mx-2 md:mx-4 lg:mx-6 my-2 md:my-4 lg:my-6 overflow-y-auto overflow-x-hidden pointer-events-auto">
-        <div className="flex flex-col gap-4 md:gap-5 lg:gap-6 items-center">
+        <div className="flex flex-row flex-wrap gap-4 md:gap-5 lg:gap-6 items-start justify-center">
           {/* Zona de drop vazia para criar novas combinações - sempre visível quando é minha vez */}
           {isMyTurn && (
             <div
@@ -117,7 +117,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
             </div>
           )}
 
-          {/* Combinações existentes - Layout vertical (coluna) */}
+          {/* Combinações existentes - Layout em linha, cada meld em um card container */}
           {melds.map((meld) => {
             const player = getPlayer(meld.ownerUid);
             const isDragOver = dragOverMeldId === meld.id;
@@ -129,8 +129,8 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, meld.id)}
                 className={`
-                  w-full flex flex-col items-center gap-2 md:gap-3 px-2 md:px-3 lg:px-4 py-3 md:py-4 rounded-lg md:rounded-xl
-                  ${isDragOver ? 'bg-emerald-500/30 border-2 border-emerald-400' : 'bg-emerald-900/40 border border-emerald-700/50'}
+                  flex flex-col items-center gap-2 md:gap-3 px-2 md:px-3 lg:px-4 py-3 md:py-4
+                  ${isDragOver ? 'bg-emerald-500/20 border-2 border-emerald-400' : 'bg-transparent border border-transparent'}
                   transition-colors
                 `}
               >
