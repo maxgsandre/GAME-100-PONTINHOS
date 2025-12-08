@@ -12,12 +12,14 @@ import { calculateHandPoints } from '../lib/rules';
 import { runTransaction, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAppStore } from '../app/store';
+import { useDialog } from '../contexts/DialogContext';
 
 interface RoundEndProps {
   room: Room;
 }
 
 export function RoundEnd({ room }: RoundEndProps) {
+  const { alert } = useDialog();
   const userId = useAppStore(state => state.userId);
   const [players, setPlayers] = useState<Player[]>([]);
   const [hands, setHands] = useState<Record<string, Hand>>({});
@@ -87,7 +89,7 @@ export function RoundEnd({ room }: RoundEndProps) {
       await startGame(room.id);
     } catch (error: any) {
       console.error('Error starting next round:', error);
-      alert(error.message || 'Erro ao iniciar próxima rodada');
+      await alert({ message: error.message || 'Erro ao iniciar próxima rodada' });
       setProcessing(false);
     }
   };
@@ -121,7 +123,7 @@ export function RoundEnd({ room }: RoundEndProps) {
       });
     } catch (error: any) {
       console.error('Error resetting scores:', error);
-      alert(error.message || 'Erro ao reiniciar placar');
+      await alert({ message: error.message || 'Erro ao reiniciar placar' });
       setProcessing(false);
     }
   };

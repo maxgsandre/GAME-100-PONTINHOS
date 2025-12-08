@@ -3,6 +3,7 @@ import { Send, MessageSquare } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { subscribeToChat, sendChatMessage, ChatMessage } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
+import { useDialog } from '../contexts/DialogContext';
 
 interface ChatProps {
   roomId: string;
@@ -13,6 +14,7 @@ interface ChatProps {
 }
 
 export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle, onMessageCountChange }: ChatProps) {
+  const { alert } = useDialog();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
@@ -68,7 +70,7 @@ export function Chat({ roomId, className = '', isOpen: externalIsOpen, onToggle,
       setInputText('');
     } catch (error: any) {
       console.error('Error sending message:', error);
-      alert(error.message || 'Erro ao enviar mensagem');
+      await alert({ message: error.message || 'Erro ao enviar mensagem' });
     } finally {
       setSending(false);
     }

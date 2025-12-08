@@ -7,6 +7,7 @@ import { LogOut, MessageSquare, Ban } from 'lucide-react';
 import { useState } from 'react';
 import { Chat } from './Chat';
 import { MeldsArea } from './MeldsArea';
+import { useDialog } from '../contexts/DialogContext';
 
 type Player = { 
   id: string;
@@ -196,6 +197,7 @@ export function MobileGameLayout({
   onAddCardToMeld,
   onCreateMeld,
 }: MobileGameLayoutProps) {
+  const { alert } = useDialog();
   const [chatOpen, setChatOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
 
@@ -365,7 +367,9 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
                   if (!actions[0].disabled) {
                     handleAction('discard');
                   } else {
-                    alert(discardDisabledReason || 'Botão desabilitado');
+                    (async () => {
+                      await alert({ message: discardDisabledReason || 'Botão desabilitado' });
+                    })();
                   }
                 }}
                 disabled={actions[0].disabled}

@@ -1,6 +1,7 @@
 ﻿import { MeldDoc } from '../lib/firestoreGame';
 import { Card, parseCard, SUIT_SYMBOLS, SUIT_COLORS, getRankValue } from '../lib/deck';
 import { useState, useRef } from 'react';
+import { useDialog } from '../contexts/DialogContext';
 
 interface MeldsAreaProps {
   melds: MeldDoc[];
@@ -12,6 +13,7 @@ interface MeldsAreaProps {
 }
 
 export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateMeld, selectedCards = [] }: MeldsAreaProps) {
+  const { alert } = useDialog();
   const [dragOverMeldId, setDragOverMeldId] = useState<string | null>(null);
   const [dragOverEmpty, setDragOverEmpty] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
@@ -60,7 +62,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
     setDragOverMeldId(null);
   };
 
-  const handleDrop = (e: React.DragEvent, meldId: string) => {
+  const handleDrop = async (e: React.DragEvent, meldId: string) => {
     e.preventDefault();
     const cardData = e.dataTransfer.getData('application/card');
     if (cardData && onAddCardToMeld && isMyTurn) {
@@ -90,7 +92,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
     setDragOverEmpty(false);
   };
 
-  const handleEmptyDrop = (e: React.DragEvent) => {
+  const handleEmptyDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     // Tentar ler do dataTransfer primeiro (para drag and drop)
     let cardsToUse = selectedCards;
@@ -107,7 +109,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
     if (cardsToUse.length >= 3 && onCreateMeld && isMyTurn) {
       onCreateMeld(cardsToUse);
     } else if (cardsToUse.length < 3) {
-      alert('Selecione pelo menos 3 cartas para criar uma combinacao');
+      await alert({ message: 'Selecione pelo menos 3 cartas para criar uma combinação' });
     }
     setDragOverEmpty(false);
   };

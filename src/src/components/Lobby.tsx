@@ -3,12 +3,14 @@ import { Copy, Check, Users, Play, Crown } from 'lucide-react';
 import { Room, Player, subscribeToPlayers, startGame } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Chat } from './Chat';
+import { useDialog } from '../contexts/DialogContext';
 
 interface LobbyProps {
   room: Room;
 }
 
 export function Lobby({ room }: LobbyProps) {
+  const { alert } = useDialog();
   const [players, setPlayers] = useState<Player[]>([]);
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -47,7 +49,7 @@ export function Lobby({ room }: LobbyProps) {
         stack: error.stack,
         error: error
       });
-      alert(error.message || 'Erro ao iniciar jogo');
+      await alert({ message: error.message || 'Erro ao iniciar jogo' });
       setStarting(false);
     }
   };
