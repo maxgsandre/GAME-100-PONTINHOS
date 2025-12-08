@@ -41,6 +41,8 @@ export function Table({ room }: TableProps) {
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
+  const [pauseDeadline, setPauseDeadline] = useState<number | null>(null);
+  const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
 
   const isMyTurn = room.playerOrder[room.turnIndex] === userId;
 
@@ -82,6 +84,29 @@ export function Table({ room }: TableProps) {
       setHasDrawn(false);
     }
   }, [players, isMyTurn, userId]);
+
+  // Track pause timer (when someone is attempting to go out fora da vez)
+  useEffect(() => {
+    if (room.isPaused && room.pausedBy) {
+      const deadline = Date.now() + 30000;
+      setPauseDeadline(deadline);
+    } else {
+      setPauseDeadline(null);
+      setPauseRemainingMs(null);
+    }
+  }, [room.isPaused, room.pausedBy]);
+
+  useEffect(() => {
+    if (!pauseDeadline) return;
+    const id = setInterval(() => {
+      const remaining = pauseDeadline - Date.now();
+      setPauseRemainingMs(Math.max(0, remaining));
+      if (remaining <= 0) {
+        clearInterval(id);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [pauseDeadline]);
   
   // Reset hasDrawn when turn changes (only when it becomes my turn, not when it's already my turn)
   useEffect(() => {
@@ -479,6 +504,14 @@ export function Table({ room }: TableProps) {
     return acc;
   }, {} as Record<string, string>);
 
+  // Mapa de progresso de pausa por jogador (0..1)
+  const pauseProgressByPlayer = (() => {
+    if (!room.isPaused || !room.pausedBy || !pauseDeadline || pauseRemainingMs === null) return undefined;
+    const total = 30000;
+    const progress = Math.min(1, Math.max(0, 1 - pauseRemainingMs / total));
+    return { [room.pausedBy]: progress };
+  })();
+
   const handleCardSelect = (card: Card, index?: number) => {
     if (!isMyTurn || !hand) {
       return;
@@ -608,6 +641,7 @@ export function Table({ room }: TableProps) {
         hasDrawn={hasDrawn}
         rules={room.rules}
         roomId={room.id}
+        pauseProgressByPlayer={pauseProgressByPlayer}
         onBuyStock={handleDrawStock}
         onBuyDiscard={handleDrawDiscard}
         onCardSelect={handleCardSelect}
