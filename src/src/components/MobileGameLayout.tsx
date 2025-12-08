@@ -35,7 +35,6 @@ interface MobileGameLayoutProps {
   hasDrawn: boolean;
   rules?: GameRules;
   roomId: string;
-  canGoOutByLayoff?: boolean;
   onBuyStock: () => void;
   onBuyDiscard: () => void;
   onCardSelect: (card: Card, index?: number) => void;
@@ -168,7 +167,6 @@ export function MobileGameLayout({
   canPlay,
   hasDrawn,
   roomId,
-  canGoOutByLayoff = false,
   onBuyStock,
   onBuyDiscard,
   onCardSelect,
@@ -194,13 +192,11 @@ export function MobileGameLayout({
   const isMyTurn = canPlay;
 
   // Determine why discard button is disabled
-  // Special case: If player has only 1 card, they can discard it even without drawing (e.g., after adding card to meld)
-  // Normal case: if it's my turn AND I've drawn a card AND I have exactly 1 card selected
-  const hasOnlyOneCard = hand.length === 1;
-  const discardDisabled = !canPlay || (!hasDrawn && !hasOnlyOneCard) || selectedCards.length !== 1;
+  // Player MUST draw first before being able to discard
+  const discardDisabled = !canPlay || !hasDrawn || selectedCards.length !== 1;
   const discardDisabledReason = !canPlay 
     ? 'Não é sua vez' 
-    : (!hasDrawn && !hasOnlyOneCard)
+    : !hasDrawn
       ? 'Você precisa comprar uma carta primeiro (do monte ou do descarte)' 
       : selectedCards.length === 0
         ? 'Selecione uma carta para descartar'
@@ -231,12 +227,10 @@ export function MobileGameLayout({
       id: 'knock',
       label: 'Bater!',
       danger: true,
-      // Disable if: (not my turn AND blocked) OR (my turn AND hand too small AND cannot go out with layoff)
-      // Special case: If player has only 1 card, they should discard it (which auto-goes out), not use "Bater!"
-      // Allow if: not my turn AND not blocked (can try special scenarios)
-      // Allow if: my turn AND (hand >= 2 OR can go out with layoff)
-      // If hand.length === 1, disable "Bater!" because player should discard instead (which auto-goes out)
-      disabled: (isBlocked && !isMyTurn) || (isMyTurn && (hand.length < 2 || (hand.length === 1 && !canGoOutByLayoff))),
+      // "Bater!" button is ONLY for pausing when it's NOT your turn
+      // When it's your turn, you automatically go out by discarding the last card
+      // Disable if: it's my turn OR (not my turn AND blocked)
+      disabled: isMyTurn || (isBlocked && !isMyTurn),
     },
   ];
 
