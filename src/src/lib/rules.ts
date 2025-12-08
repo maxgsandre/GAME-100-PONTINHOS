@@ -345,6 +345,7 @@ export interface GoOutScenario {
   melds: Meld[];
   discardCard?: Card; // Card to discard (undefined for scenario 1)
   randomCard?: Card; // Random card that becomes discard (scenario 2)
+  usesDiscardTop?: boolean; // True if scenario uses the discard top card
 }
 
 export const canGoOutWithScenarios = (
@@ -514,5 +515,5 @@ export const canGoOutWithScenarios = (
     }
   }
 
-  return { canGoOut: false, error: 'N?o foi poss?vel bater com essas cartas' };
+  return { canGoOut: false, error: 'Não foi possível bater com essas cartas' };
 }
