@@ -59,8 +59,24 @@ service cloud.firestore {
           get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'lobby'
         );
         
-        // Only the player can update their own data
-        allow update: if isAuthenticated() && request.auth.uid == playerId;
+        // Allow update if:
+        // 1. Player is updating their own data, OR
+        // 2. Room member is updating hasDrawnThisTurn during game (when turn changes)
+        //    - Only allow updating hasDrawnThisTurn and isBlocked fields by other members
+        allow update: if isAuthenticated() && (
+          request.auth.uid == playerId ||
+          (
+            isRoomMember(roomId) &&
+            get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'playing' &&
+            // Other members can only update hasDrawnThisTurn and isBlocked
+            // All other fields must remain unchanged
+            request.resource.data.name == resource.data.name &&
+            request.resource.data.score == resource.data.score &&
+            request.resource.data.isReady == resource.data.isReady &&
+            request.resource.data.photoURL == resource.data.photoURL &&
+            request.resource.data.joinedAt == resource.data.joinedAt
+          )
+        );
         
         // Only the player can delete their own data
         allow delete: if isAuthenticated() && request.auth.uid == playerId;
