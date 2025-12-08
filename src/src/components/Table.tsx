@@ -223,8 +223,27 @@ export function Table({ room }: TableProps) {
       return;
     }
 
-    // Group selected cards into melds
-    const meld = isValidMeld(cards);
+    // Group selected cards into melds (order agnostic). If direct check fails, try auto-detecting a valid meld with all selected cards.
+    let meld = isValidMeld(cards);
+
+    if (!meld.valid) {
+      const allMelds = findAllMelds(cards);
+      const exact = allMelds.find((m) => {
+        if (m.cards.length !== cards.length) return false;
+        const temp = [...cards];
+        // multiset equality
+        for (const c of m.cards) {
+          const idx = temp.indexOf(c);
+          if (idx === -1) return false;
+          temp.splice(idx, 1);
+        }
+        return temp.length === 0;
+      });
+      if (exact) {
+        meld = { valid: true, type: exact.type };
+      }
+    }
+
     if (!meld.valid) {
       alert('As cartas selecionadas não formam uma combinação válida');
       return;
@@ -454,10 +473,6 @@ export function Table({ room }: TableProps) {
     };
   });
   
-  // Debug: log player positions
-  if (totalPlayers === 4) {
-    console.log('🔍 4 Players - Positions:', playersForMobile.map(p => `${p.name} (${p.position})`));
-  }
 
   const playerNamesMap = players.reduce((acc, player) => {
     acc[player.id] = player.name;
@@ -466,23 +481,17 @@ export function Table({ room }: TableProps) {
 
   const handleCardSelect = (card: Card, index?: number) => {
     if (!isMyTurn || !hand) {
-      console.log('handleCardSelect: blocked - isMyTurn:', isMyTurn, 'hand:', !!hand);
       return;
     }
     
     // Use the provided index or find the first occurrence
     const cardIndex = index !== undefined ? index : hand.cards.findIndex(c => c === card);
     if (cardIndex === -1) {
-      console.log('handleCardSelect: card not found');
       return;
     }
     
     // Check if this specific card at this index is already selected
     const isSelected = selectedCardIndices.includes(cardIndex);
-    
-    console.log('handleCardSelect:', {
-      card,
-      cardIndex,
       isSelected,
       currentSelectedCount: selectedCards.length,
       hasDrawn
