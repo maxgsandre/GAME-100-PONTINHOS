@@ -299,6 +299,26 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
     const handDoc = await transaction.get(handRef);
     const handData = handDoc.data() as Hand;
 
+    // If hand is already empty (e.g., após encostar todas as cartas em melds), finalizar rodada.
+    if (handData.cards.length === 0) {
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        discardTop: roomData.discardTop,
+        winnerId: userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
+      // reset blocks
+      const playersSnapshot = await transaction.get(query(collection(db, 'rooms', roomId, 'players')));
+      playersSnapshot.forEach((playerDoc) => {
+        if (playerDoc.data().isBlocked) {
+          transaction.update(playerDoc.ref, { isBlocked: false });
+        }
+      });
+      return;
+    }
+
     // Validar que não pode ter mais de 10 cartas após comprar
     if (handData.cards.length >= 10) {
       throw new Error('Você já tem 10 cartas. Descartar uma carta antes de comprar novamente.');
@@ -606,9 +626,40 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
       });
     }
 
-    transaction.update(roomRef, {
-      lastAction: 'Baixou combinações',
-    });
+    // If player has no cards left after laying down melds, they go out (bater)
+    if (newHand.length === 0) {
+      // Read all player documents to reset blocks
+      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+      for (const playerId of roomData.playerOrder) {
+        allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
+      }
+      const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+
+      // Player goes out by laying down all cards
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        winnerId: userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
+
+      // Reset all player blocks and hasDrawnThisTurn for next round
+      playerDocs.forEach((playerDoc, index) => {
+        if (playerDoc.exists()) {
+          const playerData = playerDoc.data() as Player;
+          const updates: any = { hasDrawnThisTurn: false };
+          if (playerData && playerData.isBlocked) {
+            updates.isBlocked = false;
+          }
+          transaction.update(allPlayerRefs[index].ref, updates);
+        }
+      });
+    } else {
+      transaction.update(roomRef, {
+        lastAction: 'Baixou combinações',
+      });
+    }
   });
 };
 
