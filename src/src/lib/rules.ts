@@ -22,6 +22,7 @@ export interface Meld {
 export const isValidSequence = (cards: Card[]): boolean => {
   if (cards.length < 3) return false;
   
+  // Parse all cards first
   const parsed = cards.map(parseCard);
   const suit = parsed[0].suit;
   
@@ -30,6 +31,7 @@ export const isValidSequence = (cards: Card[]): boolean => {
   
   // Helper to verify consecutiveness given a rank-to-number mapper
   const isConsecutive = (ranks: Rank[], mapper: (r: Rank) => number) => {
+    // Sort values to check consecutiveness (order of input doesn't matter)
     const sortedValues = [...ranks].map(mapper).sort((a, b) => a - b);
     for (let i = 1; i < sortedValues.length; i++) {
       if (sortedValues[i] !== sortedValues[i - 1] + 1) return false;
@@ -37,11 +39,13 @@ export const isValidSequence = (cards: Card[]): boolean => {
     return true;
   };
 
+  // Get ranks from parsed cards (order doesn't matter, we'll sort the values)
   const ranks = parsed.map((c) => c.rank);
 
   // Ace as low (A,2,3...) OR Ace as high (Q,K,A)
   const aceHighMapper = (r: Rank) => (r === 'A' ? 14 : getRankValue(r));
 
+  // Check both ace low and ace high sequences (order of cards doesn't matter)
   const validLow = isConsecutive(ranks, getRankValue);
   const validHigh = isConsecutive(ranks, aceHighMapper);
 
@@ -65,13 +69,18 @@ export const isValidSet = (cards: Card[]): boolean => {
   return true;
 };
 
-// Validate a meld
+// Validate a meld (order of cards doesn't matter)
 export const isValidMeld = (cards: Card[]): { valid: boolean; type?: MeldType } => {
-  if (isValidSequence(cards)) {
+  // Make a copy to avoid mutating the original array
+  const cardsCopy = [...cards];
+  
+  // Try sequence first
+  if (isValidSequence(cardsCopy)) {
     return { valid: true, type: 'sequence' };
   }
   
-  if (isValidSet(cards)) {
+  // Then try set
+  if (isValidSet(cardsCopy)) {
     return { valid: true, type: 'set' };
   }
   
