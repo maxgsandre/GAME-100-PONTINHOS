@@ -34,6 +34,7 @@ export function Table({ room }: TableProps) {
   const userId = useAppStore(state => state.userId);
   const [players, setPlayers] = useState<Player[]>([]);
   const [hand, setHand] = useState<Hand | null>(null);
+  const [opponentHands, setOpponentHands] = useState<Record<string, Hand>>({});
   const [deckState, setDeckState] = useState<DeckState | null>(null);
   const [melds, setMelds] = useState<MeldDoc[]>([]);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
@@ -49,13 +50,23 @@ export function Table({ room }: TableProps) {
     const unsubscribeDeck = subscribeToDeckState(room.id, setDeckState);
     const unsubscribeMelds = subscribeToMelds(room.id, setMelds);
 
+    // Subscribe to all opponent hands to show real card count
+    const opponentUnsubscribes = room.playerOrder
+      .filter(playerId => playerId !== userId)
+      .map(playerId => {
+        return subscribeToHand(room.id, playerId, (hand) => {
+          setOpponentHands(prev => ({ ...prev, [playerId]: hand }));
+        });
+      });
+
     return () => {
       unsubscribePlayers();
       unsubscribeHand();
       unsubscribeDeck();
       unsubscribeMelds();
+      opponentUnsubscribes.forEach(unsub => unsub());
     };
-  }, [room.id, userId]);
+  }, [room.id, room.playerOrder, userId]);
 
   // Track previous turn index to detect turn changes
   const prevTurnIndex = useRef<number>(room.turnIndex);
@@ -388,12 +399,18 @@ export function Table({ room }: TableProps) {
       }
     }
     
+    // Get real hand count for opponents
+    const opponentHand = opponentHands[playerId];
+    const handCount = isYou 
+      ? hand?.cards.length || 0
+      : opponentHand?.cards.length || 0;
+
     return {
       id: playerId,
       name: player?.name || 'Jogador',
       score: player?.score || 0,
       photoURL: player?.photoURL,
-      handCount: isYou ? hand?.cards.length : 9, // For opponents, show default count (we don't have access to their hands)
+      handCount,
       isYou,
       isTurn: index === room.turnIndex,
       position,
