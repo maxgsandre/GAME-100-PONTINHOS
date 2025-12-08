@@ -203,17 +203,6 @@ export function MobileGameLayout({
         : selectedCards.length > 1
           ? 'Selecione apenas uma carta'
           : '';
-  
-  // Debug log
-  if (canPlay && hasDrawn) {
-    console.log('Discard button state:', {
-      canPlay,
-      hasDrawn,
-      selectedCardsLength: selectedCards.length,
-      discardDisabled,
-      selectedCards
-    });
-  }
 
   const actions = [
     {
@@ -235,9 +224,7 @@ export function MobileGameLayout({
   ];
 
   const handleAction = (id: string) => {
-    console.log('handleAction called:', id, 'discardDisabled:', discardDisabled, 'canPlay:', canPlay, 'hasDrawn:', hasDrawn, 'selectedCards:', selectedCards.length);
     if (id === 'discard') {
-      console.log('Calling onDiscard');
       onDiscard();
     } else if (id === 'knock') {
       onKnock();
@@ -356,14 +343,6 @@ export function MobileGameLayout({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Discard button clicked', {
-                    disabled: actions[0].disabled,
-                    canPlay,
-                    hasDrawn,
-                    selectedCardsLength: selectedCards.length,
-                    discardDisabled,
-                    discardDisabledReason
-                  });
                   if (!actions[0].disabled) {
                     handleAction('discard');
                   } else {
