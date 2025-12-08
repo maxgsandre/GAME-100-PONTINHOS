@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, DoorOpen, Key } from 'lucide-react';
+import { Users, Plus, DoorOpen, Key, LogOut } from 'lucide-react';
 import { createRoom, joinRoom } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
+import { signOutUser } from '../lib/firebase';
 
 export function Home() {
   const navigate = useNavigate();
@@ -57,69 +58,34 @@ export function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    if (window.confirm('Tem certeza que deseja sair?')) {
+      try {
+        await signOutUser();
+        navigate('/login');
+      } catch (err: any) {
+        alert('Erro ao fazer logout: ' + err.message);
+      }
+    }
+  };
+
   if (mode === 'menu') {
     return (
       <div 
-        className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden"
-        style={{
-          backgroundImage: 'url(/mesa.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
+        className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden bg-black"
       >
-        {/* Decorative dots - top left */}
-        <div className="absolute top-8 left-8 flex gap-2">
-          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-        </div>
-
-        {/* Decorative dots - bottom right */}
-        <div className="absolute bottom-8 right-8 flex gap-2">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-        </div>
-
-        {/* Decorative shape - bottom left */}
-        <div className="absolute bottom-8 left-8 opacity-60">
-          <div className="w-12 h-12 bg-blue-400 transform rotate-12" style={{
-            clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)'
-          }}></div>
-        </div>
-
-        {/* Decorative cards - bottom left */}
-        <div className="absolute bottom-10 left-10 opacity-30">
-          <div className="relative">
-            <div className="w-20 h-28 bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg shadow-2xl transform rotate-12 border-2 border-blue-800"></div>
-            <div className="absolute top-2 left-2 w-20 h-28 bg-gradient-to-br from-blue-800 to-blue-600 rounded-lg shadow-xl transform rotate-6 border-2 border-blue-700"></div>
-            <div className="absolute top-4 left-4 w-20 h-28 bg-gradient-to-br from-blue-700 to-blue-500 rounded-lg shadow-lg border-2 border-blue-600"></div>
-          </div>
-        </div>
-
-        {/* Decorative chips - bottom right */}
-        <div className="absolute bottom-20 right-16 opacity-40">
-          <div className="flex gap-3">
-            <div className="w-10 h-10 bg-red-600 rounded-full shadow-xl border-2 border-red-800"></div>
-            <div className="w-10 h-10 bg-green-600 rounded-full shadow-xl border-2 border-green-800"></div>
-            <div className="w-10 h-10 bg-blue-600 rounded-full shadow-xl border-2 border-blue-800"></div>
-          </div>
-        </div>
-
-        {/* Decorative chips - top left */}
-        <div className="absolute top-20 left-16 opacity-25">
-          <div className="flex gap-2">
-            <div className="w-6 h-6 bg-orange-500 rounded-full shadow-lg"></div>
-            <div className="w-6 h-6 bg-red-500 rounded-full shadow-lg"></div>
-            <div className="w-6 h-6 bg-green-500 rounded-full shadow-lg"></div>
-            <div className="w-6 h-6 bg-blue-500 rounded-full shadow-lg"></div>
-          </div>
-        </div>
+        {/* Logout button - top right */}
+        <button
+          onClick={handleLogout}
+          className="absolute top-4 right-4 z-20 flex items-center gap-2 px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-lg"
+          title="Sair da conta"
+        >
+          <LogOut size={18} />
+          <span className="text-sm font-medium">Sair</span>
+        </button>
 
         {/* Main content container */}
-        <div className="relative z-10 flex flex-col items-center p-10 bg-[#282A36] rounded-2xl shadow-2xl max-w-md w-full">
+        <div className="relative z-10 flex flex-col items-center p-10 bg-black rounded-2xl shadow-2xl max-w-md w-full border border-gray-800">
           {/* Spade icon */}
           <div className="mb-8">
             <div 
@@ -139,7 +105,17 @@ export function Home() {
           </h1>
 
           {/* Slogan */}
-          <p className="text-lg text-gray-300 mb-10">Jogue com seus amigos!</p>
+          <p className="text-lg text-gray-300 mb-6">Jogue com seus amigos!</p>
+
+          {/* Gemini Image */}
+          <div className="mb-6 w-full flex justify-center">
+            <img 
+              src="/Gemini_Generated_Image.png" 
+              alt="100 Pontinhos" 
+              className="max-w-full h-auto rounded-lg shadow-lg"
+              style={{ maxHeight: '200px' }}
+            />
+          </div>
 
           {/* Action buttons */}
           <div className="flex flex-col space-y-5 w-full">
