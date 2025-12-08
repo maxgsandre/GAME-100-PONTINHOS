@@ -120,7 +120,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
       {/* Container com scroll horizontal APENAS para combinações - abaixo da zona de drop */}
       {/* Se combinações forem muito grandes, permite scroll vertical também para não sobrepor os botões */}
       <div className="flex-1 mx-2 md:mx-4 lg:mx-6 overflow-x-auto overflow-y-auto pointer-events-auto">
-        <div className="flex flex-row gap-4 md:gap-5 lg:gap-6 items-start justify-start min-w-max">
+        <div className="flex flex-row gap-4 md:gap-5 lg:gap-6 items-start justify-start min-w-max pl-2 md:pl-4 lg:pl-6">
 
           {/* Combinações existentes - Layout em linha, cada meld em um card container */}
           {melds.map((meld) => {
