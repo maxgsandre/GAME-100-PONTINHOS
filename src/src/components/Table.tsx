@@ -71,16 +71,27 @@ export function Table({ room }: TableProps) {
   // Track previous turn index to detect turn changes
   const prevTurnIndex = useRef<number>(room.turnIndex);
   
+  // Sync hasDrawn with Firestore player data
+  useEffect(() => {
+    if (isMyTurn) {
+      const currentPlayer = players.find(p => p.id === userId);
+      const hasDrawnFromFirestore = currentPlayer?.hasDrawnThisTurn || false;
+      setHasDrawn(hasDrawnFromFirestore);
+    } else {
+      // If it's not my turn, reset hasDrawn
+      setHasDrawn(false);
+    }
+  }, [players, isMyTurn, userId]);
+  
   // Reset hasDrawn when turn changes (only when it becomes my turn, not when it's already my turn)
   useEffect(() => {
     // Only reset if turnIndex actually changed AND it's now my turn
     if (isMyTurn && prevTurnIndex.current !== room.turnIndex) {
-      setHasDrawn(false);
       setSelectedCards([]); // Clear selection when turn changes
       setSelectedCardIndices([]); // Clear selected indices when turn changes
       prevTurnIndex.current = room.turnIndex;
     } else if (!isMyTurn) {
-      // If it's not my turn anymore, update the ref but don't reset hasDrawn
+      // If it's not my turn anymore, update the ref
       prevTurnIndex.current = room.turnIndex;
     }
   }, [room.turnIndex, isMyTurn]);
