@@ -73,8 +73,11 @@ export function Lobby({ room }: LobbyProps) {
           <div className="bg-gradient-to-r from-green-400 to-green-500 h-2"></div>
           
           <div className="p-6">
-            {/* Título */}
-            <h1 className="text-center text-2xl font-bold text-green-600 mb-6">Sala de Espera</h1>
+            {/* Título + rodada */}
+            <div className="flex flex-col items-center mb-6">
+              <h1 className="text-2xl font-bold text-green-600">Sala de Espera</h1>
+              <p className="text-sm text-gray-500 mt-1">Rodada atual: {room.round || 1}</p>
+            </div>
 
             {/* Código da Sala */}
             <div className="mb-6">
