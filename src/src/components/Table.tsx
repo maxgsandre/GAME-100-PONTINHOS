@@ -22,7 +22,7 @@ import {
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
-import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios } from '../lib/rules';
+import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios, canGoOutWithLayoff } from '../lib/rules';
 import { useNavigate } from 'react-router-dom';
 
 interface TableProps {
@@ -113,6 +113,20 @@ export function Table({ room }: TableProps) {
     prevHand.current = currentHand;
   }, [hand?.cards, hasDrawn, isMyTurn, hand, selectedCards]);
 
+  // Auto-select last card if player has 1 card (can go out by discarding)
+  // IMPORTANT: This must be before any conditional returns to follow React hooks rules
+  // Note: Player can discard even without drawing if they have only 1 card (e.g., after adding card to meld)
+  useEffect(() => {
+    if (hand && hand.cards.length === 1 && isMyTurn) {
+      const lastCard = hand.cards[0];
+      // Always select the last card - this allows the player to discard and automatically go out
+      if (selectedCards.length !== 1 || !selectedCards.includes(lastCard)) {
+        setSelectedCards([lastCard]);
+        setSelectedCardIndices([0]);
+      }
+    }
+  }, [hand?.cards.length, isMyTurn]);
+
   const handleDrawStock = async () => {
     if (!isMyTurn || hasDrawn || actionInProgress) {
       if (hasDrawn) {
@@ -154,8 +168,10 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDiscard = async () => {
-    if (!isMyTurn || !hasDrawn || selectedCards.length !== 1 || !hand || actionInProgress) {
-      if (!hasDrawn) {
+    // Special case: If player has only 1 card, they can discard it even without drawing (e.g., after adding card to meld)
+    const hasOnlyOneCard = hand && hand.cards.length === 1;
+    if (!isMyTurn || (!hasDrawn && !hasOnlyOneCard) || selectedCards.length !== 1 || !hand || actionInProgress) {
+      if (!hasDrawn && !hasOnlyOneCard) {
         alert('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
       }
       return;
@@ -530,12 +546,21 @@ export function Table({ room }: TableProps) {
     try {
       setActionInProgress(true);
       await addCardToMeld(room.id, meldId, card);
+      
+      // After adding card to meld, if hand has only 1 card left and player has drawn,
+      // automatically select that card so they can discard and go out
+      // Note: hand will be updated via subscription, so we check in a useEffect
     } catch (error: any) {
       alert(error.message || 'Erro ao adicionar carta à combinação');
     } finally {
       setActionInProgress(false);
     }
   };
+
+  // Check if player can go out with layoff (adding cards to existing melds)
+  const canGoOutByLayoff = hand && melds.length > 0 
+    ? canGoOutWithLayoff(hand.cards, melds.map(m => ({ type: m.type, cards: m.cards })))
+    : false;
 
   return (
     <>
@@ -555,6 +580,7 @@ export function Table({ room }: TableProps) {
         hasDrawn={hasDrawn}
         rules={room.rules}
         roomId={room.id}
+        canGoOutByLayoff={canGoOutByLayoff}
         onBuyStock={handleDrawStock}
         onBuyDiscard={handleDrawDiscard}
         onCardSelect={handleCardSelect}
