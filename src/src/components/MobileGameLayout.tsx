@@ -185,6 +185,7 @@ export function MobileGameLayout({
   canPlay,
   hasDrawn,
   roomId,
+  pauseProgressByPlayer,
   onBuyStock,
   onBuyDiscard,
   onCardSelect,
