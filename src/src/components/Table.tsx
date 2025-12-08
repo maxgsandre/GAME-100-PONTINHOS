@@ -492,10 +492,6 @@ export function Table({ room }: TableProps) {
     
     // Check if this specific card at this index is already selected
     const isSelected = selectedCardIndices.includes(cardIndex);
-      isSelected,
-      currentSelectedCount: selectedCards.length,
-      hasDrawn
-    });
     
     if (isSelected) {
       // Deselecting this specific card instance
