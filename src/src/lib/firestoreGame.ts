@@ -426,13 +426,20 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
     const deckDoc = await transaction.get(deckRef);
     const deckData = deckDoc.data() as DeckState;
 
-    if (deckData.discard.length === 0) {
+    // Fix inconsistent state: if discardTop exists but discard array is empty, sync them
+    let discardArray = deckData.discard;
+    if (discardArray.length === 0 && roomData.discardTop) {
+      // State is inconsistent - add discardTop to array to fix it
+      discardArray = [roomData.discardTop];
+    }
+
+    if (discardArray.length === 0) {
       throw new Error('Descarte vazio');
     }
 
     // Take top card from discard
-    const card = deckData.discard[deckData.discard.length - 1];
-    const newDiscard = deckData.discard.slice(0, -1);
+    const card = discardArray[discardArray.length - 1];
+    const newDiscard = discardArray.slice(0, -1);
     const newDiscardTop = newDiscard.length > 0 ? newDiscard[newDiscard.length - 1] : null;
 
     // Add to player's hand
@@ -503,13 +510,20 @@ export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
     const deckDoc = await transaction.get(deckRef);
     const deckData = deckDoc.data() as DeckState;
 
-    if (deckData.discard.length === 0) {
+    // Fix inconsistent state: if discardTop exists but discard array is empty, sync them
+    let discardArray = deckData.discard;
+    if (discardArray.length === 0 && roomData.discardTop) {
+      // State is inconsistent - add discardTop to array to fix it
+      discardArray = [roomData.discardTop];
+    }
+
+    if (discardArray.length === 0) {
       throw new Error('Descarte vazio');
     }
 
     // Take top card from discard
-    const card = deckData.discard[deckData.discard.length - 1];
-    const newDiscard = deckData.discard.slice(0, -1);
+    const card = discardArray[discardArray.length - 1];
+    const newDiscard = discardArray.slice(0, -1);
     const newDiscardTop = newDiscard.length > 0 ? newDiscard[newDiscard.length - 1] : null;
 
     // Add to player's hand
@@ -615,6 +629,14 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
     }
     const handData = handDoc.data() as Hand;
 
+    // Get deck state (needed to push the discarded card)
+    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+    const deckDoc = await transaction.get(deckRef);
+    if (!deckDoc.exists()) {
+      throw new Error('Estado do baralho não encontrado');
+    }
+    const deckData = deckDoc.data() as DeckState;
+
     // Verify player has the card
     if (!handData.cards.includes(card)) {
       throw new Error('Você não tem essa carta');
@@ -632,6 +654,11 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
 
     transaction.update(handRef, {
       cards: newHand,
+    });
+
+    // Push discarded card to the discard pile
+    transaction.update(deckRef, {
+      discard: [...deckData.discard, card],
     });
 
     // If player has no cards left after discarding, they go out (bater)
