@@ -103,7 +103,7 @@ export function Table({ room }: TableProps) {
 
   // Track previous turn index to detect turn changes
   const prevTurnIndex = useRef<number>(room.turnIndex);
-  
+
   // Sync hasDrawn with Firestore player data
   useEffect(() => {
     if (isMyTurn) {
@@ -185,7 +185,8 @@ export function Table({ room }: TableProps) {
   // Auto-select newly drawn card
   const prevHand = useRef<Card[]>([]);
   useEffect(() => {
-    if (!hand || !isMyTurn) {
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    if (!hand || (!isMyTurn && !isPausedByMe)) {
       prevHand.current = hand?.cards || [];
       return;
     }
@@ -193,8 +194,8 @@ export function Table({ room }: TableProps) {
     const currentHand = hand.cards;
     const prevHandCards = prevHand.current;
 
-    // If hand increased by 1 card and we just drew, find the new card
-    if (currentHand.length === prevHandCards.length + 1 && hasDrawn) {
+    // If hand increased by 1 card and we just drew (or are in pause), find the new card
+    if (currentHand.length === prevHandCards.length + 1 && (hasDrawn || isPausedByMe)) {
       // Find the card that's in current hand but not in previous hand
       const newCardIndex = currentHand.findIndex(card => !prevHandCards.includes(card));
       if (newCardIndex !== -1) {
@@ -207,7 +208,7 @@ export function Table({ room }: TableProps) {
     }
 
     prevHand.current = currentHand;
-  }, [hand?.cards, hasDrawn, isMyTurn, hand, selectedCards]);
+  }, [hand?.cards, hasDrawn, isMyTurn, hand, selectedCards, room.isPaused, room.pausedBy, userId]);
 
   // Auto-select last card if player has 1 card AND has drawn (can go out by discarding)
   // IMPORTANT: This must be before any conditional returns to follow React hooks rules
