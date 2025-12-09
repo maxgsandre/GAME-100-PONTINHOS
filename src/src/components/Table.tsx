@@ -275,8 +275,9 @@ export function Table({ room }: TableProps) {
     }
     
     // Player MUST draw first before being able to discard (or be in pause)
-    if ((isMyTurn && !hasDrawn) || selectedCards.length !== 1 || !hand || actionInProgress) {
-      if (isMyTurn && !hasDrawn) {
+    // During pause, hasDrawn is already true (card was picked up automatically)
+    if ((isMyTurn && !hasDrawn && !isPausedByMe) || selectedCards.length !== 1 || !hand || actionInProgress) {
+      if (isMyTurn && !hasDrawn && !isPausedByMe) {
         await showAlert('Você precisa comprar uma carta primeiro (do monte ou do descarte)' );
       }
       return;
@@ -726,7 +727,7 @@ export function Table({ room }: TableProps) {
         selectedIndices={selectedCardIndices}
         melds={melds}
         playerNames={playerNamesMap}
-        canPlay={isMyTurn && !actionInProgress}
+        canPlay={(isMyTurn || (room.isPaused && room.pausedBy === userId)) && !actionInProgress}
         hasDrawn={hasDrawn}
         rules={room.rules}
         roomId={room.id}
