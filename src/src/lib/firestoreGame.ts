@@ -2,10 +2,12 @@ import {
   collection,
   doc,
   setDoc,
+  addDoc,
   updateDoc,
   onSnapshot,
   query,
   where,
+  orderBy,
   getDocs,
   runTransaction,
   serverTimestamp,
@@ -59,6 +61,14 @@ export interface MeldDoc {
   ownerUid: string;
   cards: Card[];
   type: 'sequence' | 'set';
+}
+
+export interface ChatMessage {
+  id: string;
+  uid: string;
+  name: string;
+  text: string;
+  createdAt: Timestamp;
 }
 
 // Create room
@@ -799,6 +809,114 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
   });
 };
 
+// Add card to existing meld (layoff)
+export const addCardToMeld = async (roomId: string, meldId: string, card: Card): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    // Read room data
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomDoc = await transaction.get(roomRef);
+    if (!roomDoc.exists()) {
+      throw new Error('Sala não encontrada');
+    }
+    const roomData = roomDoc.data() as Room;
+
+    // Check if game is paused
+    const isPausedByMe = roomData.isPaused && roomData.pausedBy === userId;
+    if (roomData.isPaused && !isPausedByMe) {
+      throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
+    }
+
+    // Verify it's player's turn OR player paused the game (trying to go out)
+    const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
+    if (currentPlayerId !== userId && !isPausedByMe) {
+      throw new Error('Não é seu turno');
+    }
+
+    // Read hand
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+    if (!handDoc.exists()) {
+      throw new Error('Mão não encontrada');
+    }
+    const handData = handDoc.data() as Hand;
+
+    // Verify player has the card
+    const cardIndex = handData.cards.indexOf(card);
+    if (cardIndex === -1) {
+      throw new Error('Você não tem essa carta');
+    }
+
+    // Read meld
+    const meldRef = doc(db, 'rooms', roomId, 'melds', meldId);
+    const meldDoc = await transaction.get(meldRef);
+    if (!meldDoc.exists()) {
+      throw new Error('Combinação não encontrada');
+    }
+    const meldData = meldDoc.data() as MeldDoc;
+
+    // Verify card can be added to meld using rules validation
+    const existingMeld: Meld = {
+      cards: meldData.cards,
+      type: meldData.type,
+    };
+    
+    if (!canAddCardToMeld(existingMeld, card)) {
+      throw new Error('Essa carta não pode ser adicionada a essa combinação');
+    }
+
+    // Remove card from hand
+    const newHand = [...handData.cards];
+    newHand.splice(cardIndex, 1);
+
+    transaction.update(handRef, {
+      cards: newHand,
+    });
+
+    // Add card to meld
+    transaction.update(meldRef, {
+      cards: [...meldData.cards, card],
+    });
+
+    // Update last action
+    transaction.update(roomRef, {
+      lastAction: 'Adicionou carta à combinação',
+    });
+
+    // If player has no cards left after adding to meld, they go out (bater)
+    if (newHand.length === 0) {
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        discardTop: roomData.discardTop,
+        winnerId: userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
+      
+      // Reset all player blocks and hasDrawnThisTurn for next round
+      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+      for (const playerId of roomData.playerOrder) {
+        allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
+      }
+      const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+
+      playerDocs.forEach((playerDoc, index) => {
+        if (playerDoc.exists()) {
+          const playerData = playerDoc.data() as Player;
+          const updates: any = { hasDrawnThisTurn: false };
+          if (playerData && playerData.isBlocked) {
+            updates.isBlocked = false;
+          }
+          transaction.update(allPlayerRefs[index].ref, updates);
+        }
+      });
+    }
+  });
+};
+
 // Attempt to go out (bater) - can be called out of turn during pause
 // This validates and completes the go out action
 export const attemptGoOut = async (
@@ -1228,5 +1346,93 @@ export const subscribeToMelds = (roomId: string, callback: (melds: MeldDoc[]) =>
       melds.push({ id: doc.id, ...doc.data() } as MeldDoc);
     });
     callback(melds);
+  });
+};
+
+// Reorder hand cards
+export const reorderHand = async (roomId: string, newOrder: Card[]): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    // Read room data
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomDoc = await transaction.get(roomRef);
+    if (!roomDoc.exists()) {
+      throw new Error('Sala não encontrada');
+    }
+    const roomData = roomDoc.data() as Room;
+
+    // Check if game is paused
+    const isPausedByMe = roomData.isPaused && roomData.pausedBy === userId;
+    if (roomData.isPaused && !isPausedByMe) {
+      throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
+    }
+
+    // Read hand
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+    if (!handDoc.exists()) {
+      throw new Error('Mão não encontrada');
+    }
+    const handData = handDoc.data() as Hand;
+
+    // Verify new order has same cards (same count and same cards)
+    if (newOrder.length !== handData.cards.length) {
+      throw new Error('Número de cartas não corresponde');
+    }
+
+    // Count cards in both arrays
+    const handCardCounts = new Map<string, number>();
+    const newOrderCardCounts = new Map<string, number>();
+    
+    for (const card of handData.cards) {
+      handCardCounts.set(card, (handCardCounts.get(card) || 0) + 1);
+    }
+    
+    for (const card of newOrder) {
+      newOrderCardCounts.set(card, (newOrderCardCounts.get(card) || 0) + 1);
+    }
+
+    // Verify counts match
+    for (const [card, count] of handCardCounts.entries()) {
+      if (newOrderCardCounts.get(card) !== count) {
+        throw new Error('As cartas não correspondem');
+      }
+    }
+
+    // Update hand with new order
+    transaction.update(handRef, {
+      cards: newOrder,
+    });
+  });
+};
+
+// Chat functions
+export const sendChatMessage = async (roomId: string, text: string): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  const userData = getCurrentUserData();
+  if (!userData) throw new Error('User data not available');
+
+  const messagesRef = collection(db, 'rooms', roomId, 'messages');
+  await addDoc(messagesRef, {
+    uid: userId,
+    name: userData.name,
+    text: text.trim(),
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const subscribeToChat = (roomId: string, callback: (messages: ChatMessage[]) => void): (() => void) => {
+  const messagesRef = collection(db, 'rooms', roomId, 'messages');
+  const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'));
+  return onSnapshot(messagesQuery, (snapshot) => {
+    const messages: ChatMessage[] = [];
+    snapshot.forEach((doc) => {
+      messages.push({ id: doc.id, ...doc.data() } as ChatMessage);
+    });
+    callback(messages);
   });
 };
