@@ -51,6 +51,49 @@ export interface Hand {
   cards: Card[];
 }
 
+// Helper function to find eligible winner (player with < 100 points)
+// If the player who went out has 100+ points, find the player with lowest score < 100
+// If all players have 100+, return the player with lowest score
+function findEligibleWinner(
+  playerWhoWentOut: string,
+  playerDocs: Array<{ id: string; data: () => Player }>,
+  playerOrder: string[]
+): string | null {
+  // Get all players with their scores
+  const playersWithScores = playerDocs
+    .map((doc) => ({
+      id: doc.id,
+      score: doc.data().score || 0,
+    }))
+    .filter((p) => playerOrder.includes(p.id));
+
+  if (playersWithScores.length === 0) return null;
+
+  // Find the player who went out
+  const wentOutPlayer = playersWithScores.find((p) => p.id === playerWhoWentOut);
+  if (!wentOutPlayer) return playerWhoWentOut;
+
+  // If player who went out has < 100 points, they win
+  if (wentOutPlayer.score < 100) {
+    return playerWhoWentOut;
+  }
+
+  // Player has 100+ points, find eligible winner (lowest score < 100)
+  const eligiblePlayers = playersWithScores.filter((p) => p.score < 100);
+  
+  if (eligiblePlayers.length === 0) {
+    // All players have 100+, return player with lowest score
+    const lowestScore = Math.min(...playersWithScores.map((p) => p.score));
+    const winner = playersWithScores.find((p) => p.score === lowestScore);
+    return winner?.id || null;
+  }
+
+  // Return eligible player with lowest score
+  const lowestScore = Math.min(...eligiblePlayers.map((p) => p.score));
+  const winner = eligiblePlayers.find((p) => p.score === lowestScore);
+  return winner?.id || null;
+}
+
 export interface DeckState {
   stock: Card[];
   discard: Card[];
@@ -572,11 +615,18 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
         hasDrawnThisTurn: false,
       });
       
+      // Find eligible winner (player with < 100 points)
+      const eligibleWinner = findEligibleWinner(
+        userId,
+        playerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
+        roomData.playerOrder
+      );
+      
       // Player goes out by discarding last card
       transaction.update(roomRef, {
         status: 'roundEnd',
         discardTop: card,
-        winnerId: userId,
+        winnerId: eligibleWinner || userId,
         lastAction: 'Bateu!',
         isPaused: false,
         pausedBy: deleteField(),
@@ -776,20 +826,28 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
 
     // If player has no cards left after laying down melds, they go out (bater)
     if (newHand.length === 0) {
-      transaction.update(roomRef, {
-        status: 'roundEnd',
-        discardTop: roomData.discardTop, // No new discard, use existing
-        winnerId: userId,
-        lastAction: 'Bateu!',
-        isPaused: false,
-        pausedBy: deleteField(),
-      });
-      // Reset all player blocks and hasDrawnThisTurn for next round
+      // Read all player documents to find eligible winner
       const allPlayerRefs: Array<{ ref: any; id: string }> = [];
       for (const playerId of roomData.playerOrder) {
         allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
       }
       const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+      
+      // Find eligible winner (player with < 100 points)
+      const eligibleWinner = findEligibleWinner(
+        userId,
+        playerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
+        roomData.playerOrder
+      );
+      
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        discardTop: roomData.discardTop, // No new discard, use existing
+        winnerId: eligibleWinner || userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
 
       playerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
@@ -887,21 +945,28 @@ export const addCardToMeld = async (roomId: string, meldId: string, card: Card):
 
     // If player has no cards left after adding to meld, they go out (bater)
     if (newHand.length === 0) {
-      transaction.update(roomRef, {
-        status: 'roundEnd',
-        discardTop: roomData.discardTop,
-        winnerId: userId,
-        lastAction: 'Bateu!',
-        isPaused: false,
-        pausedBy: deleteField(),
-      });
-      
-      // Reset all player blocks and hasDrawnThisTurn for next round
+      // Read all player documents to find eligible winner
       const allPlayerRefs: Array<{ ref: any; id: string }> = [];
       for (const playerId of roomData.playerOrder) {
         allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
       }
       const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+      
+      // Find eligible winner (player with < 100 points)
+      const eligibleWinner = findEligibleWinner(
+        userId,
+        playerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
+        roomData.playerOrder
+      );
+      
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        discardTop: roomData.discardTop,
+        winnerId: eligibleWinner || userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
 
       playerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
@@ -1102,11 +1167,18 @@ export const attemptGoOut = async (
         });
       }
 
+      // Find eligible winner (player with < 100 points)
+      const eligibleWinner = findEligibleWinner(
+        userId,
+        allPlayerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
+        roomData.playerOrder
+      );
+      
       // End round
       transaction.update(roomRef, {
         status: 'roundEnd',
         discardTop: discardCard || roomData.discardTop,
-        winnerId: userId,
+        winnerId: eligibleWinner || userId,
         lastAction: 'Bateu!',
         isPaused: false,
         pausedBy: deleteField(),
@@ -1233,11 +1305,30 @@ export const goOut = async (
       });
     }
 
+    // Read all player documents to find eligible winner
+    const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+    const allPlayerDocs: any[] = [];
+    for (const playerId of roomData.playerOrder) {
+      const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
+      allPlayerRefs.push({ ref: playerRef, id: playerId });
+      const playerDoc = await transaction.get(playerRef);
+      if (playerDoc.exists()) {
+        allPlayerDocs.push(playerDoc);
+      }
+    }
+    
+    // Find eligible winner (player with < 100 points)
+    const eligibleWinner = findEligibleWinner(
+      userId,
+      allPlayerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
+      roomData.playerOrder
+    );
+
     // End round
     transaction.update(roomRef, {
       status: 'roundEnd',
       discardTop: discardCard || roomData.discardTop,
-      winnerId: userId,
+      winnerId: eligibleWinner || userId,
       lastAction: 'Bateu!',
       isPaused: false,
       pausedBy: deleteField(),
