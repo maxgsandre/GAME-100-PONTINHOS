@@ -38,6 +38,7 @@ interface MobileGameLayoutProps {
   isPaused?: boolean;
   pausedBy?: string;
   currentTurnHasDrawn?: boolean;
+  currentUserId?: string;
   rules?: GameRules;
   roomId: string;
   pauseProgressByPlayer?: Record<string, number>;
@@ -193,6 +194,7 @@ export function MobileGameLayout({
   isPaused,
   pausedBy,
   currentTurnHasDrawn,
+  currentUserId,
   roomId,
   pauseProgressByPlayer,
   onBuyStock,
@@ -219,7 +221,8 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   // const currentPlayer = bottomPlayer;
   // const isBlocked = currentPlayer?.isBlocked || false;
   const isMyTurn = canPlay;
-  const isPausedByOthers = isPaused && pausedBy && !bottomPlayer?.isYou;
+  // Game is paused by someone else (not me)
+  const isPausedByOthers = isPaused && pausedBy && pausedBy !== currentUserId;
 
   // Determine why discard button is disabled
   // Player MUST draw first before being able to discard

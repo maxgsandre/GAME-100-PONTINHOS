@@ -764,6 +764,7 @@ export function Table({ room }: TableProps) {
         isPaused={room.isPaused}
         pausedBy={room.pausedBy}
         currentTurnHasDrawn={currentTurnHasDrawn}
+        currentUserId={userId}
         rules={room.rules}
         roomId={room.id}
         pauseProgressByPlayer={pauseProgressByPlayer}
