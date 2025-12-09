@@ -608,6 +608,11 @@ export function Table({ room }: TableProps) {
     return acc;
   }, {} as Record<string, string>);
 
+  // Dados do jogador da vez para regras de habilitação do botão Bater!
+  const currentTurnPlayerId = room.playerOrder[room.turnIndex];
+  const currentTurnPlayer = players.find(p => p.id === currentTurnPlayerId);
+  const currentTurnHasDrawn = currentTurnPlayer?.hasDrawnThisTurn ?? false;
+
   // Mapa de progresso de pausa por jogador (0..1) - visível para TODOS os jogadores
   const pauseProgressByPlayer = (() => {
     if (!room.isPaused || !room.pausedBy || pauseRemainingMs === null) return undefined;
@@ -756,6 +761,9 @@ export function Table({ room }: TableProps) {
         playerNames={playerNamesMap}
         canPlay={isMyTurn && !actionInProgress}
         hasDrawn={hasDrawn}
+        isPaused={room.isPaused}
+        pausedBy={room.pausedBy}
+        currentTurnHasDrawn={currentTurnHasDrawn}
         rules={room.rules}
         roomId={room.id}
         pauseProgressByPlayer={pauseProgressByPlayer}

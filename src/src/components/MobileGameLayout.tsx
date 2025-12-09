@@ -35,6 +35,9 @@ interface MobileGameLayoutProps {
   playerNames: Record<string, string>;
   canPlay: boolean;
   hasDrawn: boolean;
+  isPaused?: boolean;
+  pausedBy?: string;
+  currentTurnHasDrawn?: boolean;
   rules?: GameRules;
   roomId: string;
   pauseProgressByPlayer?: Record<string, number>;
@@ -187,6 +190,9 @@ export function MobileGameLayout({
   melds,
   canPlay,
   hasDrawn,
+  isPaused,
+  pausedBy,
+  currentTurnHasDrawn,
   roomId,
   pauseProgressByPlayer,
   onBuyStock,
@@ -213,6 +219,7 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   // const currentPlayer = bottomPlayer;
   // const isBlocked = currentPlayer?.isBlocked || false;
   const isMyTurn = canPlay;
+  const isPausedByOthers = isPaused && pausedBy && !bottomPlayer?.isYou;
 
   // Determine why discard button is disabled
   // Player MUST draw first before being able to discard
@@ -239,10 +246,14 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
       id: 'knock',
       label: 'Bater!',
       danger: true,
-      // "Bater!" button is ONLY for pausing when it's NOT your turn
-      // When it's your turn, you automatically go out by discarding the last card
-      // Temporarily removed blocking check for testing
-      disabled: isMyTurn, // || (isBlocked && !isMyTurn),
+      // Regras:
+      // - Nunca habilita quando é sua vez (bate descartando)
+      // - Desabilita se o jogo já está pausado por outro jogador
+      // - Desabilita se o jogador da vez já comprou a carta (tem que esperar o descarte dele)
+      disabled:
+        isMyTurn ||
+        isPausedByOthers ||
+        !!currentTurnHasDrawn,
     },
   ];
 
