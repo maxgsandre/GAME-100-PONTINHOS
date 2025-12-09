@@ -54,7 +54,10 @@ export function Table({ room }: TableProps) {
   const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null);
   const prevDiscardTopRef = useRef<Card | null>(null);
 
-  const isMyTurn = room.playerOrder[room.turnIndex] === userId;
+  // During pause, the player who paused has the turn
+  const isMyTurn = room.isPaused && room.pausedBy === userId
+    ? true
+    : !room.isPaused && room.playerOrder[room.turnIndex] === userId;
 
   // Auto-clear blocking on mount (temporary for testing)
   useEffect(() => {
@@ -221,6 +224,12 @@ export function Table({ room }: TableProps) {
   }, [hand?.cards.length, hasDrawn, isMyTurn]);
 
   const handleDrawStock = async () => {
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    // During pause, monte is disabled
+    if (isPausedByMe) {
+      await showAlert('Durante a tentativa de bater, você não pode comprar do monte. Use apenas a carta do descarte.' );
+      return;
+    }
     if (!isMyTurn || hasDrawn || actionInProgress) {
       if (hasDrawn) {
         await showAlert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.' );
@@ -315,9 +324,11 @@ export function Table({ room }: TableProps) {
   const handleLayDownMelds = async (cardsToLay?: Card[]) => {
     const cards = cardsToLay || selectedCards;
     
-    // Player must draw first before laying down melds
-    if (!isMyTurn || !hasDrawn || cards.length < 3 || actionInProgress) {
-      if (!hasDrawn) {
+    // Allow during pause (card was already picked up)
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    // Player must draw first before laying down melds (or be in pause)
+    if ((!isMyTurn && !isPausedByMe) || (!hasDrawn && !isPausedByMe) || cards.length < 3 || actionInProgress) {
+      if (!hasDrawn && !isPausedByMe) {
         await showAlert('Você precisa comprar uma carta primeiro (do monte ou do descarte)' );
       } else if (cards.length < 3) {
         await showAlert('Selecione pelo menos 3 cartas para criar uma combinação' );
@@ -572,6 +583,11 @@ export function Table({ room }: TableProps) {
       ? hand?.cards.length || 0
       : opponentHand?.cards.length || 0;
 
+    // During pause, show pausedBy player as having the turn
+    const isTurn = room.isPaused && room.pausedBy === playerId
+      ? true
+      : !room.isPaused && index === room.turnIndex;
+    
     return {
       id: playerId,
       name: player?.name || 'Jogador',
@@ -579,7 +595,7 @@ export function Table({ room }: TableProps) {
       photoURL: player?.photoURL,
       handCount,
       isYou,
-      isTurn: index === room.turnIndex,
+      isTurn,
       position,
       isBlocked: player?.isBlocked || false,
     };
@@ -696,9 +712,11 @@ export function Table({ room }: TableProps) {
   };
 
   const handleAddCardToMeld = async (meldId: string, card: Card) => {
-    // Player must draw first before adding cards to melds
-    if (!isMyTurn || !hasDrawn || actionInProgress) {
-      if (!hasDrawn) {
+    // Allow during pause (card was already picked up)
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    // Player must draw first before adding cards to melds (or be in pause)
+    if ((!isMyTurn && !isPausedByMe) || (!hasDrawn && !isPausedByMe) || actionInProgress) {
+      if (!hasDrawn && !isPausedByMe) {
         await showAlert('Você precisa comprar uma carta primeiro (do monte ou do descarte)' );
       }
       return;
@@ -735,7 +753,7 @@ export function Table({ room }: TableProps) {
         selectedIndices={selectedCardIndices}
         melds={melds}
         playerNames={playerNamesMap}
-        canPlay={(isMyTurn || (room.isPaused && room.pausedBy === userId)) && !actionInProgress}
+        canPlay={isMyTurn && !actionInProgress}
         hasDrawn={hasDrawn}
         rules={room.rules}
         roomId={room.id}
