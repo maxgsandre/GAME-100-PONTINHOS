@@ -368,7 +368,10 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
                     handleAction('discard');
                   } else {
                     (async () => {
-                      await alert({ message: discardDisabledReason || 'Botão desabilitado' });
+                      const reason = typeof discardDisabledReason === 'string' 
+                        ? discardDisabledReason 
+                        : String(discardDisabledReason || 'Botão desabilitado');
+                      await alert({ message: reason });
                     })();
                   }
                 }}

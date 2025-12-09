@@ -31,25 +31,54 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [resolvePromise, setResolvePromise] = useState<((value: boolean | void) => void) | null>(null);
   const [isAlert, setIsAlert] = useState(false);
 
-  const confirm = useCallback((opts: DialogOptions): Promise<boolean> => {
+  // Helper to ensure message is always a string
+  const ensureString = (value: any): string => {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') {
+      // If it's an object, try to get a message property or stringify it
+      if ('message' in value && typeof value.message === 'string') {
+        return value.message;
+      }
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
+
+  const confirm = useCallback((opts: DialogOptions | any): Promise<boolean> => {
     return new Promise((resolve) => {
-      setOptions({
-        ...opts,
-        message: typeof opts.message === 'string' ? opts.message : String(opts.message || ''),
-      });
+      // Handle case where opts itself might be a string or object
+      const normalizedOpts: DialogOptions = typeof opts === 'string' 
+        ? { message: opts }
+        : {
+            title: opts?.title || 'Atenção',
+            message: ensureString(opts?.message || opts || ''),
+            confirmText: opts?.confirmText,
+            cancelText: opts?.cancelText,
+            variant: opts?.variant || 'default',
+          };
+      
+      setOptions(normalizedOpts);
       setIsAlert(false);
       setIsOpen(true);
       setResolvePromise(() => resolve);
     });
   }, []);
 
-  const alert = useCallback((opts: DialogOptions): Promise<void> => {
+  const alert = useCallback((opts: DialogOptions | any): Promise<void> => {
     return new Promise((resolve) => {
-      setOptions({
-        ...opts,
-        message: typeof opts.message === 'string' ? opts.message : String(opts.message || ''),
-        cancelText: undefined,
-      });
+      // Handle case where opts itself might be a string or object
+      const normalizedOpts: DialogOptions = typeof opts === 'string' 
+        ? { message: opts }
+        : {
+            title: opts?.title || 'Atenção',
+            message: ensureString(opts?.message || opts || ''),
+            confirmText: opts?.confirmText,
+            cancelText: undefined,
+            variant: opts?.variant || 'default',
+          };
+      
+      setOptions(normalizedOpts);
       setIsAlert(true);
       setIsOpen(true);
       setResolvePromise(() => {
@@ -85,7 +114,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
               {options.title || 'Atenção'}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-gray-300 text-base">
-              {options.message}
+              {String(options.message || '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row gap-3 sm:flex-row sm:justify-end">
