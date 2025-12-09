@@ -22,7 +22,7 @@ import {
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
-import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios } from '../lib/rules';
+import { isValidMeld, Meld, validateMultipleMelds, findAllMelds, canGoOutWithScenarios, findExpandableMeld } from '../lib/rules';
 import { useNavigate } from 'react-router-dom';
 import { useDialog } from '../contexts/DialogContext';
 
@@ -255,37 +255,29 @@ export function Table({ room }: TableProps) {
       return;
     }
 
-    // Group selected cards into melds (order agnostic). If direct check fails, try auto-detecting a valid meld with all selected cards.
-    let meld = isValidMeld(cards);
-
-    if (!meld.valid) {
-      const allMelds = findAllMelds(cards);
-      const exact = allMelds.find((m) => {
-        if (m.cards.length !== cards.length) return false;
-        const temp = [...cards];
-        // multiset equality
-        for (const c of m.cards) {
-          const idx = temp.indexOf(c);
-          if (idx === -1) return false;
-          temp.splice(idx, 1);
-        }
-        return temp.length === 0;
-      });
-      if (exact) {
-        meld = { valid: true, type: exact.type };
-      }
+    // Try to find an expandable meld (allows trinca + cards that fit)
+    const expandableMeld = findExpandableMeld(cards);
+    
+    if (!expandableMeld.valid) {
+      await showAlert('As cartas selecionadas não formam uma combinação válida. Você precisa de pelo menos uma trinca (3 cartas) e as cartas extras devem se encaixar na mesma combinação.' );
+      return;
     }
 
-    if (!meld.valid) {
-      await showAlert('As cartas selecionadas não formam uma combinação válida' );
+    // Verify that all selected cards are included in the expandable meld
+    // This ensures we're using all selected cards
+    const expandableCardSet = new Set(expandableMeld.cards);
+    const allSelectedIncluded = cards.every(card => expandableCardSet.has(card));
+    
+    if (!allSelectedIncluded) {
+      await showAlert('Todas as cartas selecionadas devem fazer parte da mesma combinação.' );
       return;
     }
 
     try {
       setActionInProgress(true);
       const meldToLay: Meld = {
-        type: meld.type!,
-        cards: cards,
+        type: expandableMeld.type!,
+        cards: expandableMeld.cards, // Use the expanded meld cards
       };
       await layDownMelds(room.id, [meldToLay]);
       setSelectedCards([]);
