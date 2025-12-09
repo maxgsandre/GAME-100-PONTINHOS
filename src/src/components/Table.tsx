@@ -50,7 +50,6 @@ export function Table({ room }: TableProps) {
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [pauseDeadline, setPauseDeadline] = useState<number | null>(null);
   const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
   const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null);
   const prevDiscardTopRef = useRef<Card | null>(null);
@@ -127,37 +126,44 @@ export function Table({ room }: TableProps) {
   // Track pause timer (when someone is attempting to go out fora da vez)
   useEffect(() => {
     if (room.isPaused && room.pausedBy === userId) {
-      // Timer starts when pause begins
-      const deadline = Date.now() + 30000;
-      setPauseDeadline(deadline);
       // Store the discard card that was picked up (it was the discardTop before pause)
       if (prevDiscardTopRef.current) {
         setPickedUpDiscardCard(prevDiscardTopRef.current);
       }
     } else {
-      setPauseDeadline(null);
-      setPauseRemainingMs(null);
       setPickedUpDiscardCard(null);
     }
   }, [room.isPaused, room.pausedBy, userId]);
 
+  // Track pause timer for ALL players (so everyone can see the progress)
   useEffect(() => {
-    if (!pauseDeadline) return;
-    const id = setInterval(() => {
-      const remaining = pauseDeadline - Date.now();
-      setPauseRemainingMs(Math.max(0, remaining));
-      if (remaining <= 0) {
-        clearInterval(id);
-        // Timer expired - return discard card and unpause
-        if (room.isPaused && room.pausedBy === userId && pickedUpDiscardCard) {
-          returnDiscardAndUnpause(room.id, pickedUpDiscardCard).catch((error) => {
-            console.error('Error returning discard card:', error);
-          });
-        }
+    if (!room.isPaused || !room.pausedBy || !room.pausedAt) {
+      setPauseRemainingMs(null);
+      return;
+    }
+
+    // Calculate remaining time based on pausedAt timestamp
+    const updateRemaining = () => {
+      const pausedAtMs = room.pausedAt!.toMillis();
+      const elapsed = Date.now() - pausedAtMs;
+      const remaining = Math.max(0, 30000 - elapsed);
+      setPauseRemainingMs(remaining);
+      
+      // If timer expired and it's the player who paused, return the card
+      if (remaining <= 0 && room.pausedBy === userId && pickedUpDiscardCard) {
+        returnDiscardAndUnpause(room.id, pickedUpDiscardCard).catch((error) => {
+          console.error('Error returning discard card:', error);
+        });
       }
-    }, 200);
+    };
+
+    // Update immediately
+    updateRemaining();
+
+    // Update every 200ms
+    const id = setInterval(updateRemaining, 200);
     return () => clearInterval(id);
-  }, [pauseDeadline, room.isPaused, room.pausedBy, room.id, userId, pickedUpDiscardCard]);
+  }, [room.isPaused, room.pausedBy, room.pausedAt, room.id, userId, pickedUpDiscardCard]);
   
   // Reset hasDrawn when turn changes (only when it becomes my turn, not when it's already my turn)
   useEffect(() => {
@@ -585,16 +591,18 @@ export function Table({ room }: TableProps) {
     return acc;
   }, {} as Record<string, string>);
 
-  // Mapa de progresso de pausa por jogador (0..1)
+  // Mapa de progresso de pausa por jogador (0..1) - visível para TODOS os jogadores
   const pauseProgressByPlayer = (() => {
-    if (!room.isPaused || !room.pausedBy || !pauseDeadline || pauseRemainingMs === null) return undefined;
+    if (!room.isPaused || !room.pausedBy || pauseRemainingMs === null) return undefined;
     const total = 30000;
     const progress = Math.min(1, Math.max(0, 1 - pauseRemainingMs / total));
     return { [room.pausedBy]: progress };
   })();
 
   const handleCardSelect = (card: Card, index?: number) => {
-    if (!isMyTurn || !hand) {
+    // Allow card selection during pause (when player is trying to go out)
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    if ((!isMyTurn && !isPausedByMe) || !hand) {
       return;
     }
     

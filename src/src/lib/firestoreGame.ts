@@ -33,6 +33,7 @@ export interface Room {
   firstPassComplete?: boolean; // True when all players have played at least once in current round
   isPaused?: boolean; // True when someone is attempting to go out out of turn
   pausedBy?: string; // User ID of player who paused the game
+  pausedAt?: Timestamp; // When the game was paused (for timer calculation)
   discardedBy?: string; // User ID of player who discarded the top card
 }
 
@@ -546,6 +547,7 @@ export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
     transaction.update(roomRef, {
       isPaused: true,
       pausedBy: userId,
+      pausedAt: serverTimestamp() as Timestamp,
       discardTop: newDiscardTop,
       discardedBy: newDiscardTop ? roomData.discardedBy : deleteField(), // Keep previous discardedBy if there's still a card
       lastAction: 'Pausou o jogo para tentar bater',
@@ -597,6 +599,7 @@ export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card)
     transaction.update(roomRef, {
       isPaused: false,
       pausedBy: deleteField(),
+      pausedAt: deleteField(),
       discardTop: discardCard,
       discardedBy: userId, // Player who returned the card is now the one who discarded it
       lastAction: 'Tempo esgotado - carta retornada',
@@ -694,6 +697,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
         lastAction: 'Bateu!',
         isPaused: false,
         pausedBy: deleteField(),
+        pausedAt: deleteField(),
       });
       
       // Reset all player blocks and hasDrawnThisTurn for next round
@@ -748,6 +752,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
               firstPassComplete: firstPassComplete,
               isPaused: false,
               pausedBy: deleteField(),
+              pausedAt: deleteField(),
             });
           } else {
             // All cards used - player goes out!
@@ -782,6 +787,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
             firstPassComplete: firstPassComplete,
             isPaused: false,
             pausedBy: deleteField(),
+            pausedAt: deleteField(),
           });
         }
       } else {
@@ -930,6 +936,7 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
         lastAction: 'Bateu!',
         isPaused: false,
         pausedBy: deleteField(),
+        pausedAt: deleteField(),
       });
 
       playerDocs.forEach((playerDoc, index) => {
@@ -1049,6 +1056,7 @@ export const addCardToMeld = async (roomId: string, meldId: string, card: Card):
         lastAction: 'Bateu!',
         isPaused: false,
         pausedBy: deleteField(),
+        pausedAt: deleteField(),
       });
 
       playerDocs.forEach((playerDoc, index) => {
@@ -1290,6 +1298,7 @@ export const attemptGoOut = async (
         transaction.update(roomRef, {
           isPaused: false,
           pausedBy: deleteField(),
+          pausedAt: deleteField(),
         });
       }
     });
