@@ -426,12 +426,34 @@ export const findAllMelds = (cards: Card[]): Meld[] => {
   for (const rank in byRank) {
     const rankCards = byRank[rank as Rank];
     if (rankCards.length >= 3) {
-      // Generate all combinations of 3+ cards
-      for (let i = 3; i <= rankCards.length; i++) {
-        // For sets, we allow duplicate suits (e.g., 4 Ases with 2 of same suit)
-        if (isValidSet(rankCards)) {
-          allMelds.push({ type: 'set', cards: [...rankCards] });
-          break; // Only add the full set once
+      // Find valid sets: must have at least one base trinca (3 different suits)
+      // Then can include duplicates
+      const parsed = rankCards.map(parseCard);
+      const suits = parsed.map(c => c.suit);
+      
+      // Try all combinations to find valid sets
+      for (let i = 0; i < rankCards.length - 2; i++) {
+        for (let j = i + 1; j < rankCards.length - 1; j++) {
+          for (let k = j + 1; k < rankCards.length; k++) {
+            const baseTrinca = [rankCards[i], rankCards[j], rankCards[k]];
+            const baseSuits = new Set([suits[i], suits[j], suits[k]]);
+            
+            // Check if this is a valid base trinca (3 different suits)
+            if (baseSuits.size === 3) {
+              // Found a valid base trinca, add it
+              allMelds.push({ type: 'set', cards: [...baseTrinca] });
+              
+              // Also add sets with duplicates if they exist
+              const remaining = rankCards.filter((_, idx) => idx !== i && idx !== j && idx !== k);
+              if (remaining.length > 0) {
+                const allCards = [...baseTrinca, ...remaining];
+                if (isValidSet(allCards)) {
+                  allMelds.push({ type: 'set', cards: [...allCards] });
+                }
+              }
+              break; // Found at least one valid set for this rank
+            }
+          }
         }
       }
     }
