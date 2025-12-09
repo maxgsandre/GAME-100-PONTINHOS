@@ -19,6 +19,8 @@ import {
   reorderHand,
   leaveRoom,
   addCardToMeld,
+  pauseAndPickupDiscard,
+  returnDiscardAndUnpause,
 } from '../lib/firestoreGame';
 import { useAppStore } from '../app/store';
 import { Card } from '../lib/deck';
@@ -50,6 +52,8 @@ export function Table({ room }: TableProps) {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [pauseDeadline, setPauseDeadline] = useState<number | null>(null);
   const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
+  const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null);
+  const prevDiscardTopRef = useRef<Card | null>(null);
 
   const isMyTurn = room.playerOrder[room.turnIndex] === userId;
 
@@ -104,22 +108,38 @@ export function Table({ room }: TableProps) {
       const currentPlayer = players.find(p => p.id === userId);
       const hasDrawnFromFirestore = currentPlayer?.hasDrawnThisTurn || false;
       setHasDrawn(hasDrawnFromFirestore);
+    } else if (room.isPaused && room.pausedBy === userId) {
+      // During pause, player has "drawn" the discard card
+      setHasDrawn(true);
     } else {
       // If it's not my turn, reset hasDrawn
       setHasDrawn(false);
     }
-  }, [players, isMyTurn, userId]);
+  }, [players, isMyTurn, userId, room.isPaused, room.pausedBy]);
+
+  // Track previous discardTop to know which card was picked up when pause starts
+  useEffect(() => {
+    if (!room.isPaused && room.discardTop) {
+      prevDiscardTopRef.current = room.discardTop;
+    }
+  }, [room.discardTop, room.isPaused]);
 
   // Track pause timer (when someone is attempting to go out fora da vez)
   useEffect(() => {
-    if (room.isPaused && room.pausedBy) {
+    if (room.isPaused && room.pausedBy === userId) {
+      // Timer starts when pause begins
       const deadline = Date.now() + 30000;
       setPauseDeadline(deadline);
+      // Store the discard card that was picked up (it was the discardTop before pause)
+      if (prevDiscardTopRef.current) {
+        setPickedUpDiscardCard(prevDiscardTopRef.current);
+      }
     } else {
       setPauseDeadline(null);
       setPauseRemainingMs(null);
+      setPickedUpDiscardCard(null);
     }
-  }, [room.isPaused, room.pausedBy]);
+  }, [room.isPaused, room.pausedBy, userId]);
 
   useEffect(() => {
     if (!pauseDeadline) return;
@@ -128,10 +148,16 @@ export function Table({ room }: TableProps) {
       setPauseRemainingMs(Math.max(0, remaining));
       if (remaining <= 0) {
         clearInterval(id);
+        // Timer expired - return discard card and unpause
+        if (room.isPaused && room.pausedBy === userId && pickedUpDiscardCard) {
+          returnDiscardAndUnpause(room.id, pickedUpDiscardCard).catch((error) => {
+            console.error('Error returning discard card:', error);
+          });
+        }
       }
     }, 200);
     return () => clearInterval(id);
-  }, [pauseDeadline]);
+  }, [pauseDeadline, room.isPaused, room.pausedBy, room.id, userId, pickedUpDiscardCard]);
   
   // Reset hasDrawn when turn changes (only when it becomes my turn, not when it's already my turn)
   useEffect(() => {
@@ -209,10 +235,22 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDrawDiscard = async () => {
-    if (!isMyTurn || hasDrawn || actionInProgress) {
+    // Allow drawing during pause (but discard card is already picked up automatically)
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    if (!isMyTurn && !isPausedByMe) {
+      return;
+    }
+    
+    if (isMyTurn && (hasDrawn || actionInProgress)) {
       if (hasDrawn) {
         await showAlert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.' );
       }
+      return;
+    }
+    
+    // During pause, discard card is already picked up, so just show message
+    if (isPausedByMe) {
+      await showAlert('A carta do descarte já foi pega automaticamente quando você pausou o jogo.' );
       return;
     }
 
@@ -229,9 +267,16 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDiscard = async () => {
-    // Player MUST draw first before being able to discard
-    if (!isMyTurn || !hasDrawn || selectedCards.length !== 1 || !hand || actionInProgress) {
-      if (!hasDrawn) {
+    // Allow discarding during pause (player has picked up discard card)
+    const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    
+    if (!isMyTurn && !isPausedByMe) {
+      return;
+    }
+    
+    // Player MUST draw first before being able to discard (or be in pause)
+    if ((isMyTurn && !hasDrawn) || selectedCards.length !== 1 || !hand || actionInProgress) {
+      if (isMyTurn && !hasDrawn) {
         await showAlert('Você precisa comprar uma carta primeiro (do monte ou do descarte)' );
       }
       return;
@@ -310,9 +355,6 @@ export function Table({ room }: TableProps) {
   const handleGoOut = async () => {
     if (!hand || actionInProgress) return;
 
-    const currentPlayer = players.find(p => p.id === userId);
-    const isBlocked = currentPlayer?.isBlocked || false;
-
     // "Bater!" button is only for pausing when it's NOT your turn
     // When it's your turn, you automatically go out by discarding the last card
     if (isMyTurn) {
@@ -320,18 +362,18 @@ export function Table({ room }: TableProps) {
       return;
     }
 
-    // Temporarily removed blocking check for testing
-    // if (isBlocked) {
-    //   await showAlert('Você está bloqueado. Só pode bater na sua vez.' );
-    //   return;
-    // }
+    // If game is already paused by this player, validate and try to go out
+    if (room.isPaused && room.pausedBy === userId) {
+      // Player is trying to go out during pause - validate scenario
+      if (!room.discardTop) {
+        await showAlert('Erro: carta do descarte não encontrada' );
+        return;
+      }
 
-    // If not player's turn, try special scenarios (pause and attempt to go out)
-    if (!isMyTurn) {
-      // Check if player can go out with special scenarios
+      // Check if player can go out with current hand (including picked up discard)
       const scenarioCheck = canGoOutWithScenarios(hand.cards, room.discardTop);
       if (!scenarioCheck.canGoOut || !scenarioCheck.scenario) {
-        await showAlert(scenarioCheck.error || 'Não é possível bater com essas cartas fora da sua vez' );
+        await showAlert(scenarioCheck.error || 'Não é possível bater com essas cartas' );
         return;
       }
 
@@ -341,10 +383,31 @@ export function Table({ room }: TableProps) {
         if (result.success) {
           setSelectedCards([]);
         } else {
-          await showAlert(result.error || 'Não foi possível bater. Você foi bloqueado.' );
+          await showAlert(result.error || 'Não foi possível bater.' );
         }
       } catch (error: any) {
         await showAlert(error.message || 'Erro ao tentar bater' );
+      } finally {
+        setActionInProgress(false);
+      }
+      return;
+    }
+
+    // If not player's turn and game is not paused, pause and pickup discard
+    if (!isMyTurn && !room.isPaused) {
+      if (!room.discardTop) {
+        await showAlert('Não há carta no descarte para pegar' );
+        return;
+      }
+
+      try {
+        setActionInProgress(true);
+        // Pause game and automatically pickup discard card
+        await pauseAndPickupDiscard(room.id);
+        // Timer will start automatically via useEffect
+        // Player now has 30 seconds to create melds and try to go out
+      } catch (error: any) {
+        await showAlert(error.message || 'Erro ao pausar jogo' );
       } finally {
         setActionInProgress(false);
       }
