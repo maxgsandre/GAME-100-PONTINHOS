@@ -33,7 +33,7 @@ interface TableProps {
 export function Table({ room }: TableProps) {
   const navigate = useNavigate();
   const userId = useAppStore(state => state.userId);
-  const { alert } = useDialog();
+  const { alert, confirm } = useDialog();
   const showAlert = async (err: any) => {
     const msg = typeof err === 'string' ? err : err?.message || JSON.stringify(err) || 'Algo deu errado';
     await alert(msg);
