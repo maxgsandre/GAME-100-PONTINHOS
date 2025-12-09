@@ -719,9 +719,11 @@ export const attemptGoOut = async (
 
   try {
     await runTransaction(db, async (transaction) => {
+      // ALL READS FIRST - Firestore requires all reads before any writes
       const roomRef = doc(db, 'rooms', roomId);
       const roomDoc = await transaction.get(roomRef);
       const roomData = roomDoc.data() as Room;
+      
       const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
       const deckDoc = await transaction.get(deckRef);
       const deckData = deckDoc.data() as DeckState;
@@ -739,18 +741,22 @@ export const attemptGoOut = async (
       const playerDoc = await transaction.get(playerRef);
       const playerData = playerDoc.data() as Player;
 
+      // Read all player documents (needed for resetting blocks later)
+      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+      const allPlayerDocs: any[] = [];
+      for (const playerId of roomData.playerOrder) {
+        const pRef = doc(db, 'rooms', roomId, 'players', playerId);
+        allPlayerRefs.push({ ref: pRef, id: playerId });
+        const pDoc = await transaction.get(pRef);
+        if (pDoc.exists()) {
+          allPlayerDocs.push(pDoc);
+        }
+      }
+
       // Check if player is blocked and it's not their turn
       const isMyTurn = roomData.playerOrder[roomData.turnIndex] === userId;
       if (playerData.isBlocked && !isMyTurn) {
         throw new Error('Você está bloqueado. Só pode bater na sua vez.');
-      }
-
-      // If not player's turn, pause the game
-      if (!isMyTurn && !roomData.isPaused) {
-        transaction.update(roomRef, {
-          isPaused: true,
-          pausedBy: userId,
-        });
       }
 
       // Validate scenario
@@ -877,11 +883,8 @@ export const attemptGoOut = async (
       }
 
       // Add discard card to pile (if any)
+      // Note: deckData was already read at the beginning
       if (discardCard) {
-        const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
-        const deckDoc = await transaction.get(deckRef);
-        const deckData = deckDoc.data() as DeckState;
-
         transaction.update(deckRef, {
           discard: [...deckData.discard, discardCard],
         });
@@ -897,17 +900,24 @@ export const attemptGoOut = async (
         pausedBy: deleteField(),
       });
 
-      // Reset all player blocks for next round
-      for (const playerId of roomData.playerOrder) {
-        const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
-        const playerDoc = await transaction.get(playerRef);
+      // NOW ALL WRITES - After all reads are complete
+      // If not player's turn, pause the game
+      if (!isMyTurn && !roomData.isPaused) {
+        transaction.update(roomRef, {
+          isPaused: true,
+          pausedBy: userId,
+        });
+      }
+
+      // Reset all player blocks for next round (using already-read docs)
+      allPlayerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
-          const playerData = playerDoc.data();
-          if (playerData && playerData.isBlocked) {
-            transaction.update(playerRef, { isBlocked: false });
+          const pData = playerDoc.data();
+          if (pData && pData.isBlocked) {
+            transaction.update(allPlayerRefs[index].ref, { isBlocked: false });
           }
         }
-      }
+      })
     });
 
     return { success: true };
