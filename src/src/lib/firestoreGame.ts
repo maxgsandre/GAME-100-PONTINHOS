@@ -3,7 +3,6 @@ import {
   doc,
   setDoc,
   addDoc,
-  updateDoc,
   onSnapshot,
   query,
   where,
@@ -15,7 +14,7 @@ import {
   deleteField,
 } from 'firebase/firestore';
 import { db, getCurrentUserId, getCurrentUserData } from './firebase';
-import { Card, generateDoubleDeck, shuffleDeck, parseCard, getRankValue } from './deck';
+import { Card, generateDoubleDeck, shuffleDeck } from './deck';
 import { GameRules, DEFAULT_RULES, Meld, canAddCardToMeld, GoOutScenario } from './rules';
 
 export interface Room {
@@ -141,7 +140,7 @@ export const createRoom = async (): Promise<string> => {
   const playerRef = doc(roomRef, 'players', userId);
   const playerData: Omit<Player, 'id'> = {
     name: userData.name,
-    photoURL: userData.photoURL,
+    photoURL: userData.photoURL || undefined,
     joinedAt: serverTimestamp() as Timestamp,
     score: 0,
     isReady: false,
@@ -188,7 +187,7 @@ export const joinRoom = async (roomCode: string): Promise<string> => {
   const playerRef = doc(db, 'rooms', roomId, 'players', userId);
   const playerData: Omit<Player, 'id'> = {
     name: userData.name,
-    photoURL: userData.photoURL,
+    photoURL: userData.photoURL || undefined,
     joinedAt: serverTimestamp() as Timestamp,
     score: 0,
     isReady: false,
@@ -556,7 +555,7 @@ export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card)
 };
 
 // Discard a card
-export const discardCard = async (roomId: string, card: Card, cardIndex?: number): Promise<void> => {
+export const discardCard = async (roomId: string, card: Card, _cardIndex?: number): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
 
@@ -599,10 +598,6 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
       allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
     }
     const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
-
-    // Find current player index
-    const currentPlayerIndex = roomData.playerOrder.indexOf(userId);
-    const allPlayerRefsWithIndex = allPlayerRefs.map((ref, idx) => ({ ...ref, index: idx }));
 
     transaction.update(handRef, {
       cards: newHand,
@@ -921,7 +916,7 @@ export const addCardToMeld = async (roomId: string, meldId: string, card: Card):
       type: meldData.type,
     };
     
-    if (!canAddCardToMeld(existingMeld, card)) {
+    if (!canAddCardToMeld(card, existingMeld)) {
       throw new Error('Essa carta não pode ser adicionada a essa combinação');
     }
 
@@ -1010,10 +1005,9 @@ export const attemptGoOut = async (
       }
       const handData = handDoc.data() as Hand;
 
-      // Get player doc
+      // Get player doc (not used but kept for consistency)
       const playerRef = doc(db, 'rooms', roomId, 'players', userId);
-      const playerDoc = await transaction.get(playerRef);
-      const playerData = playerDoc.data() as Player;
+      await transaction.get(playerRef);
 
       // Read all player documents (needed for resetting blocks later)
       const allPlayerRefs: Array<{ ref: any; id: string }> = [];

@@ -22,7 +22,7 @@ export function Home() {
     try {
       setLoading(true);
       setError('');
-      const { roomId } = await createRoom();
+      const roomId = await createRoom();
       const { getCurrentUserData } = await import('../lib/firebase');
       const userData = getCurrentUserData();
       if (userData) {
