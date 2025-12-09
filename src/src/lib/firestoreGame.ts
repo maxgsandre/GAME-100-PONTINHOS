@@ -193,7 +193,38 @@ export const joinRoom = async (roomCode: string): Promise<string> => {
     isReady: false,
   };
 
-  await setDoc(playerRef, playerData);
+  // Use transaction to ensure atomicity
+  await runTransaction(db, async (transaction) => {
+    const roomRef = doc(db, 'rooms', roomId);
+    const currentRoomDoc = await transaction.get(roomRef);
+    
+    if (!currentRoomDoc.exists()) {
+      throw new Error('Sala não encontrada');
+    }
+    
+    const currentRoomData = currentRoomDoc.data() as Room;
+    
+    // Double-check room is still in lobby and not full
+    if (currentRoomData.status !== 'lobby') {
+      throw new Error('Jogo já iniciado');
+    }
+    
+    if (currentRoomData.playerOrder.includes(userId)) {
+      return; // Already in room
+    }
+    
+    if (currentRoomData.playerOrder.length >= 4) {
+      throw new Error('Sala cheia');
+    }
+    
+    // Add player to playerOrder
+    transaction.update(roomRef, {
+      playerOrder: [...currentRoomData.playerOrder, userId],
+    });
+    
+    // Create player document
+    transaction.set(playerRef, playerData);
+  });
 
   return roomId;
 };
