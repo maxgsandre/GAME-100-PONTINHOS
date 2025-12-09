@@ -753,11 +753,11 @@ export const attemptGoOut = async (
         }
       }
 
-      // Check if player is blocked and it's not their turn
+      // Temporarily removed blocking check for testing
       const isMyTurn = roomData.playerOrder[roomData.turnIndex] === userId;
-      if (playerData.isBlocked && !isMyTurn) {
-        throw new Error('Você está bloqueado. Só pode bater na sua vez.');
-      }
+      // if (playerData.isBlocked && !isMyTurn) {
+      //   throw new Error('Você está bloqueado. Só pode bater na sua vez.');
+      // }
 
       // Validate scenario
       let finalHand = [...handData.cards];
@@ -933,20 +933,11 @@ export const attemptGoOut = async (
 
     return { success: true };
   } catch (error: any) {
-    // If validation failed, block the player
+    // If validation failed, just unpause the game (temporarily removed blocking)
     await runTransaction(db, async (transaction) => {
       const roomRef = doc(db, 'rooms', roomId);
       const roomDoc = await transaction.get(roomRef);
       const roomData = roomDoc.data() as Room;
-
-      // Check if it's not player's turn - if so, block them
-      const isMyTurn = roomData.playerOrder[roomData.turnIndex] === userId;
-      if (!isMyTurn) {
-        const playerRef = doc(db, 'rooms', roomId, 'players', userId);
-        transaction.update(playerRef, {
-          isBlocked: true,
-        });
-      }
 
       // Unpause game if it was paused by this player
       if (roomData.isPaused && roomData.pausedBy === userId) {

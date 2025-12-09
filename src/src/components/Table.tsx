@@ -302,11 +302,11 @@ export function Table({ room }: TableProps) {
       return;
     }
 
-    // If not player's turn and they're blocked, don't allow
-    if (isBlocked) {
-      await showAlert('Você está bloqueado. Só pode bater na sua vez.' );
-      return;
-    }
+    // Temporarily removed blocking check for testing
+    // if (isBlocked) {
+    //   await showAlert('Você está bloqueado. Só pode bater na sua vez.' );
+    //   return;
+    // }
 
     // If not player's turn, try special scenarios (pause and attempt to go out)
     if (!isMyTurn) {
