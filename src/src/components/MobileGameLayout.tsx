@@ -207,9 +207,9 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   const leftPlayer = players.find(p => p.position === 'left' && !p.isYou);
   const rightPlayer = players.find(p => p.position === 'right' && !p.isYou);
 
-  // Check if current player is blocked
+  // Check if current player is blocked (temporarily disabled for testing)
   const currentPlayer = bottomPlayer;
-  const isBlocked = currentPlayer?.isBlocked || false;
+  // const isBlocked = currentPlayer?.isBlocked || false;
   const isMyTurn = canPlay;
 
   // Determine why discard button is disabled
