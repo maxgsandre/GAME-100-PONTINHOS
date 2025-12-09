@@ -33,6 +33,7 @@ export interface Room {
   firstPassComplete?: boolean; // True when all players have played at least once in current round
   isPaused?: boolean; // True when someone is attempting to go out out of turn
   pausedBy?: string; // User ID of player who paused the game
+  discardedBy?: string; // User ID of player who discarded the top card
 }
 
 export interface Player {
@@ -300,6 +301,7 @@ export const startGame = async (roomId: string): Promise<void> => {
       round: newRound,
       turnIndex: 0,
       discardTop: firstDiscard,
+      discardedBy: deleteField(), // No one discarded yet, it's the initial card
       lastAction: 'Jogo iniciado',
       firstPassComplete: false, // First pass not complete yet - reset for new round
       isPaused: false,
@@ -470,6 +472,7 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
 
     transaction.update(roomRef, {
       discardTop: newDiscardTop,
+      discardedBy: newDiscardTop ? roomData.discardedBy : deleteField(), // Keep previous discardedBy if there's still a card
       lastAction: 'Comprou do descarte',
     });
   });
@@ -544,6 +547,7 @@ export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
       isPaused: true,
       pausedBy: userId,
       discardTop: newDiscardTop,
+      discardedBy: newDiscardTop ? roomData.discardedBy : deleteField(), // Keep previous discardedBy if there's still a card
       lastAction: 'Pausou o jogo para tentar bater',
     });
   });
@@ -594,6 +598,7 @@ export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card)
       isPaused: false,
       pausedBy: deleteField(),
       discardTop: discardCard,
+      discardedBy: userId, // Player who returned the card is now the one who discarded it
       lastAction: 'Tempo esgotado - carta retornada',
     });
   });
@@ -652,6 +657,9 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
     }
     const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
 
+    // Find current player index in playerOrder
+    const currentPlayerIndex = roomData.playerOrder.indexOf(userId);
+
     transaction.update(handRef, {
       cards: newHand,
     });
@@ -664,9 +672,11 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
     // If player has no cards left after discarding, they go out (bater)
     if (newHand.length === 0) {
       // Reset hasDrawnThisTurn for current player (they finished their turn by going out)
-      transaction.update(allPlayerRefs[0].ref, {
-        hasDrawnThisTurn: false,
-      });
+      if (currentPlayerIndex >= 0 && currentPlayerIndex < allPlayerRefs.length) {
+        transaction.update(allPlayerRefs[currentPlayerIndex].ref, {
+          hasDrawnThisTurn: false,
+        });
+      }
       
       // Find eligible winner (player with < 100 points)
       const eligibleWinner = findEligibleWinner(
@@ -679,6 +689,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
       transaction.update(roomRef, {
         status: 'roundEnd',
         discardTop: card,
+        discardedBy: userId,
         winnerId: eligibleWinner || userId,
         lastAction: 'Bateu!',
         isPaused: false,
@@ -715,16 +726,23 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
             const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
             const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
             
-            transaction.update(allPlayerRefs[0].ref, {
-              hasDrawnThisTurn: false,
-            });
+            // Reset hasDrawnThisTurn for current player (they finished their turn)
+            if (currentPlayerIndex >= 0 && currentPlayerIndex < allPlayerRefs.length) {
+              transaction.update(allPlayerRefs[currentPlayerIndex].ref, {
+                hasDrawnThisTurn: false,
+              });
+            }
             
-            transaction.update(allPlayerRefs[1].ref, {
-              hasDrawnThisTurn: false,
-            });
+            // Reset hasDrawnThisTurn for next player (starting their turn)
+            if (nextTurnIndex >= 0 && nextTurnIndex < allPlayerRefs.length) {
+              transaction.update(allPlayerRefs[nextTurnIndex].ref, {
+                hasDrawnThisTurn: false,
+              });
+            }
             
             transaction.update(roomRef, {
               discardTop: card,
+              discardedBy: userId,
               turnIndex: nextTurnIndex,
               lastAction: 'Descartou uma carta',
               firstPassComplete: firstPassComplete,
@@ -742,16 +760,23 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
           const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
           const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
           
-          transaction.update(allPlayerRefs[0].ref, {
-            hasDrawnThisTurn: false,
-          });
+          // Reset hasDrawnThisTurn for current player (they finished their turn)
+          if (currentPlayerIndex >= 0 && currentPlayerIndex < allPlayerRefs.length) {
+            transaction.update(allPlayerRefs[currentPlayerIndex].ref, {
+              hasDrawnThisTurn: false,
+            });
+          }
           
-          transaction.update(allPlayerRefs[1].ref, {
-            hasDrawnThisTurn: false,
-          });
+          // Reset hasDrawnThisTurn for next player (starting their turn)
+          if (nextTurnIndex >= 0 && nextTurnIndex < allPlayerRefs.length) {
+            transaction.update(allPlayerRefs[nextTurnIndex].ref, {
+              hasDrawnThisTurn: false,
+            });
+          }
           
           transaction.update(roomRef, {
             discardTop: card,
+            discardedBy: userId,
             turnIndex: nextTurnIndex,
             lastAction: 'Descartou uma carta',
             firstPassComplete: firstPassComplete,
@@ -764,14 +789,18 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
         const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
         
         // Reset hasDrawnThisTurn for current player (they finished their turn)
-        transaction.update(allPlayerRefs[0].ref, {
-          hasDrawnThisTurn: false,
-        });
+        if (currentPlayerIndex >= 0 && currentPlayerIndex < allPlayerRefs.length) {
+          transaction.update(allPlayerRefs[currentPlayerIndex].ref, {
+            hasDrawnThisTurn: false,
+          });
+        }
         
         // Reset hasDrawnThisTurn for next player (starting their turn)
-        transaction.update(allPlayerRefs[1].ref, {
-          hasDrawnThisTurn: false,
-        });
+        if (nextTurnIndex >= 0 && nextTurnIndex < allPlayerRefs.length) {
+          transaction.update(allPlayerRefs[nextTurnIndex].ref, {
+            hasDrawnThisTurn: false,
+          });
+        }
         
         // Check if first pass is complete (all players have played once)
         // When nextTurnIndex becomes 0, it means we've completed a full cycle
@@ -779,6 +808,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
 
         transaction.update(roomRef, {
           discardTop: card,
+          discardedBy: userId,
           turnIndex: nextTurnIndex,
           lastAction: 'Descartou uma carta',
           firstPassComplete: firstPassComplete,

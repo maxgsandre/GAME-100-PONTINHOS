@@ -26,6 +26,7 @@ interface MobileGameLayoutProps {
   lastAction?: string;
   players: Player[];
   discardTop?: Card | null;
+  discardedBy?: string;
   stockCount: number;
   hand: Card[];
   selectedCards: Card[];
@@ -178,6 +179,7 @@ export function MobileGameLayout({
   lastAction,
   players,
   discardTop,
+  discardedBy,
   stockCount,
   hand,
   selectedCards,
@@ -336,6 +338,8 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
             <DeckArea
               stockCount={stockCount}
               discardTop={discardTop}
+              discardedBy={discardedBy}
+              players={players}
               canPlay={canPlay && !hasDrawn}
               onBuyStock={onBuyStock}
               onBuyDiscard={onBuyDiscard}

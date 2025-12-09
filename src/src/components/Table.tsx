@@ -719,6 +719,7 @@ export function Table({ room }: TableProps) {
         lastAction={room.lastAction}
         players={playersForMobile}
         discardTop={room.discardTop}
+        discardedBy={room.discardedBy}
         stockCount={deckState.stock.length}
         hand={hand.cards}
         selectedCards={selectedCards}

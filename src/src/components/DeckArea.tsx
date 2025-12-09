@@ -4,12 +4,16 @@ import { parseCard, SUIT_SYMBOLS, SUIT_COLORS } from '../lib/deck';
 export function DeckArea({
   stockCount,
   discardTop,
+  discardedBy,
+  players,
   canPlay,
   onBuyStock,
   onBuyDiscard,
 }: {
   stockCount: number;
   discardTop?: Card | null;
+  discardedBy?: string;
+  players?: Array<{ id: string; name: string }>;
   canPlay: boolean;
   onBuyStock: () => void;
   onBuyDiscard: () => void;
@@ -72,7 +76,14 @@ export function DeckArea({
         >
           {renderDiscardCard()}
         </button>
-        <span className="text-xs md:text-sm lg:text-base font-bold text-white">Descarte</span>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-xs md:text-sm lg:text-base font-bold text-white">Descarte</span>
+          {discardedBy && players && (
+            <span className="text-[10px] md:text-xs text-white/70">
+              {players.find(p => p.id === discardedBy)?.name || 'Desconhecido'}
+            </span>
+          )}
+        </div>
       </div>
     </>
   );
