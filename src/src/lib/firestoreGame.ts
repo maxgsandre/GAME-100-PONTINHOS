@@ -61,25 +61,17 @@ export interface MeldDoc {
   type: 'sequence' | 'set';
 }
 
-// Generate random 6-digit room code
-export const generateRoomCode = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-// Create a new room
-export const createRoom = async (): Promise<{ roomId: string; code: string }> => {
+// Create room
+export const createRoom = async (): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
 
   const userData = getCurrentUserData();
   if (!userData) throw new Error('User data not available');
 
-  const code = generateRoomCode();
   const roomRef = doc(collection(db, 'rooms'));
-  const roomId = roomRef.id;
-
   const roomData: Omit<Room, 'id'> = {
-    code,
+    code: Math.floor(100000 + Math.random() * 900000).toString(),
     ownerId: userId,
     status: 'lobby',
     createdAt: serverTimestamp() as Timestamp,
@@ -92,23 +84,23 @@ export const createRoom = async (): Promise<{ roomId: string; code: string }> =>
 
   await setDoc(roomRef, roomData);
 
-  // Create player doc with Google data
-  const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+  // Create player document
+  const playerRef = doc(roomRef, 'players', userId);
   const playerData: Omit<Player, 'id'> = {
     name: userData.name,
-    photoURL: userData.photoURL || undefined,
+    photoURL: userData.photoURL,
     joinedAt: serverTimestamp() as Timestamp,
     score: 0,
-    isReady: true,
+    isReady: false,
   };
 
   await setDoc(playerRef, playerData);
 
-  return { roomId, code };
+  return roomRef.id;
 };
 
-// Join an existing room
-export const joinRoom = async (code: string): Promise<string> => {
+// Join room
+export const joinRoom = async (roomCode: string): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
 
@@ -117,7 +109,7 @@ export const joinRoom = async (code: string): Promise<string> => {
 
   // Find room by code
   const roomsRef = collection(db, 'rooms');
-  const q = query(roomsRef, where('code', '==', code));
+  const q = query(roomsRef, where('code', '==', roomCode));
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
@@ -125,32 +117,25 @@ export const joinRoom = async (code: string): Promise<string> => {
   }
 
   const roomDoc = querySnapshot.docs[0];
-  const roomId = roomDoc.id;
   const roomData = roomDoc.data() as Room;
 
   if (roomData.status !== 'lobby') {
-    throw new Error('A sala já está em jogo');
-  }
-
-  if (roomData.playerOrder.length >= 4) {
-    throw new Error('Sala está cheia (máximo 4 jogadores)');
+    throw new Error('Jogo já iniciado');
   }
 
   if (roomData.playerOrder.includes(userId)) {
-    // Player already in room
-    return roomId;
+    return roomDoc.id; // Already in room
   }
 
-  // Add player to room
-  await updateDoc(roomDoc.ref, {
-    playerOrder: [...roomData.playerOrder, userId],
-  });
+  if (roomData.playerOrder.length >= 4) {
+    throw new Error('Sala cheia');
+  }
 
-  // Create player doc with Google data
+  const roomId = roomDoc.id;
   const playerRef = doc(db, 'rooms', roomId, 'players', userId);
   const playerData: Omit<Player, 'id'> = {
     name: userData.name,
-    photoURL: userData.photoURL || undefined,
+    photoURL: userData.photoURL,
     joinedAt: serverTimestamp() as Timestamp,
     score: 0,
     isReady: false,
@@ -276,9 +261,9 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
       throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
     }
 
-    // Verify it's player's turn
+    // Verify it's player's turn (unless paused by this player)
     const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
-    if (currentPlayerId !== userId) {
+    if (currentPlayerId !== userId && !(roomData.isPaused && roomData.pausedBy === userId)) {
       throw new Error('Não é seu turno');
     }
 
@@ -291,46 +276,13 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
       throw new Error('Monte vazio');
     }
 
-    // Draw card
-    const card = deckData.stock[deckData.stock.length - 1];
-    const newStock = deckData.stock.slice(0, -1);
+    // Take top card from stock
+    const card = deckData.stock.pop()!;
 
     // Add to player's hand
     const handRef = doc(db, 'rooms', roomId, 'hands', userId);
     const handDoc = await transaction.get(handRef);
     const handData = handDoc.data() as Hand;
-
-    // If hand is already empty (e.g., após encostar todas as cartas em melds), finalizar rodada.
-    if (handData.cards.length === 0) {
-      // Read all player documents to reset blocks
-      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
-      for (const playerId of roomData.playerOrder) {
-        allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
-      }
-      const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
-
-      transaction.update(roomRef, {
-        status: 'roundEnd',
-        discardTop: roomData.discardTop,
-        winnerId: userId,
-        lastAction: 'Bateu!',
-        isPaused: false,
-        pausedBy: deleteField(),
-      });
-      
-      // Reset all player blocks and hasDrawnThisTurn for next round
-      playerDocs.forEach((playerDoc, index) => {
-        if (playerDoc.exists()) {
-          const playerData = playerDoc.data() as Player;
-          const updates: any = { hasDrawnThisTurn: false };
-          if (playerData && playerData.isBlocked) {
-            updates.isBlocked = false;
-          }
-          transaction.update(allPlayerRefs[index].ref, updates);
-        }
-      });
-      return;
-    }
 
     // Validar que não pode ter mais de 10 cartas após comprar
     if (handData.cards.length >= 10) {
@@ -342,14 +294,16 @@ export const drawFromStock = async (roomId: string): Promise<void> => {
     });
 
     transaction.update(deckRef, {
-      stock: newStock,
+      stock: deckData.stock,
     });
 
-    // Mark that player has drawn this turn
-    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
-    transaction.update(playerRef, {
-      hasDrawnThisTurn: true,
-    });
+    // Mark that player has drawn this turn (only if it's their turn, not during pause)
+    if (currentPlayerId === userId) {
+      const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+      transaction.update(playerRef, {
+        hasDrawnThisTurn: true,
+      });
+    }
 
     transaction.update(roomRef, {
       lastAction: 'Comprou do monte',
@@ -372,9 +326,11 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
       throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
     }
 
-    // Verify it's player's turn
+    // Verify it's player's turn OR player paused the game (trying to go out)
     const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
-    if (currentPlayerId !== userId) {
+    const isPausedByMe = roomData.isPaused && roomData.pausedBy === userId;
+    
+    if (currentPlayerId !== userId && !isPausedByMe) {
       throw new Error('Não é seu turno');
     }
 
@@ -414,15 +370,134 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
       discard: newDiscard,
     });
 
-    // Mark that player has drawn this turn
-    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
-    transaction.update(playerRef, {
-      hasDrawnThisTurn: true,
-    });
+    // Mark that player has drawn this turn (only if it's their turn, not during pause)
+    if (currentPlayerId === userId) {
+      const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+      transaction.update(playerRef, {
+        hasDrawnThisTurn: true,
+      });
+    }
 
     transaction.update(roomRef, {
       discardTop: newDiscardTop,
       lastAction: 'Comprou do descarte',
+    });
+  });
+};
+
+// Pause game and pickup discard card (for going out out of turn)
+export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomDoc = await transaction.get(roomRef);
+    const roomData = roomDoc.data() as Room;
+
+    // Verify it's NOT player's turn
+    const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
+    if (currentPlayerId === userId) {
+      throw new Error('Na sua vez, você bate automaticamente ao descartar a última carta.');
+    }
+
+    // Check if game is already paused
+    if (roomData.isPaused) {
+      if (roomData.pausedBy === userId) {
+        // Already paused by this player, just return (card already picked up)
+        return;
+      } else {
+        throw new Error('Jogo já está pausado por outro jogador');
+      }
+    }
+
+    if (!roomData.discardTop) {
+      throw new Error('Não há carta no descarte para pegar');
+    }
+
+    // Get deck state
+    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+    const deckDoc = await transaction.get(deckRef);
+    const deckData = deckDoc.data() as DeckState;
+
+    if (deckData.discard.length === 0) {
+      throw new Error('Descarte vazio');
+    }
+
+    // Take top card from discard
+    const card = deckData.discard[deckData.discard.length - 1];
+    const newDiscard = deckData.discard.slice(0, -1);
+    const newDiscardTop = newDiscard.length > 0 ? newDiscard[newDiscard.length - 1] : null;
+
+    // Add to player's hand
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+    const handData = handDoc.data() as Hand;
+
+    transaction.update(handRef, {
+      cards: [...handData.cards, card],
+    });
+
+    transaction.update(deckRef, {
+      discard: newDiscard,
+    });
+
+    // Pause the game
+    transaction.update(roomRef, {
+      isPaused: true,
+      pausedBy: userId,
+      discardTop: newDiscardTop,
+      lastAction: 'Pausou o jogo para tentar bater',
+    });
+  });
+};
+
+// Return discard card and unpause (when timer expires or player fails)
+export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  await runTransaction(db, async (transaction) => {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomDoc = await transaction.get(roomRef);
+    const roomData = roomDoc.data() as Room;
+
+    // Verify it's paused by this player
+    if (!roomData.isPaused || roomData.pausedBy !== userId) {
+      throw new Error('Jogo não está pausado por você');
+    }
+
+    // Get deck state
+    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+    const deckDoc = await transaction.get(deckRef);
+    const deckData = deckDoc.data() as DeckState;
+
+    // Remove card from player's hand
+    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+    const handDoc = await transaction.get(handRef);
+    const handData = handDoc.data() as Hand;
+
+    if (!handData.cards.includes(discardCard)) {
+      throw new Error('Carta do descarte não está na sua mão');
+    }
+
+    const newHand = handData.cards.filter(c => c !== discardCard);
+
+    transaction.update(handRef, {
+      cards: newHand,
+    });
+
+    // Return card to discard
+    transaction.update(deckRef, {
+      discard: [...deckData.discard, discardCard],
+    });
+
+    // Unpause game
+    transaction.update(roomRef, {
+      isPaused: false,
+      pausedBy: deleteField(),
+      discardTop: discardCard,
+      lastAction: 'Tempo esgotado - carta retornada',
     });
   });
 };
@@ -438,94 +513,46 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
     const roomData = roomDoc.data() as Room;
 
     // Check if game is paused
-    if (roomData.isPaused && roomData.pausedBy !== userId) {
+    const isPausedByMe = roomData.isPaused && roomData.pausedBy === userId;
+    if (roomData.isPaused && !isPausedByMe) {
       throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
     }
 
-    // Verify it's player's turn
+    // Verify it's player's turn OR player paused the game (trying to go out)
     const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
-    if (currentPlayerId !== userId) {
+    if (currentPlayerId !== userId && !isPausedByMe) {
       throw new Error('Não é seu turno');
     }
 
-    // Verify player has drawn a card this turn
-    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
-    const playerDoc = await transaction.get(playerRef);
-    const playerData = playerDoc.data() as Player;
-    if (!playerData?.hasDrawnThisTurn) {
-      throw new Error('Você precisa comprar uma carta primeiro (do monte ou do descarte)');
-    }
-
-    // Remove from player's hand
+    // Get player's hand
     const handRef = doc(db, 'rooms', roomId, 'hands', userId);
     const handDoc = await transaction.get(handRef);
+    if (!handDoc.exists()) {
+      throw new Error('Mão não encontrada');
+    }
     const handData = handDoc.data() as Hand;
 
-    // Use provided index if available, otherwise find the first occurrence
-    let indexToRemove: number;
-    if (cardIndex !== undefined) {
-      // Validate that the card at this index matches
-      if (handData.cards[cardIndex] !== card) {
-        throw new Error('Carta no índice especificado não corresponde');
-      }
-      indexToRemove = cardIndex;
-    } else {
-      // Find the first occurrence
-      indexToRemove = handData.cards.findIndex(c => c === card);
-      if (indexToRemove === -1) {
-        throw new Error('Carta não está na sua mão');
-      }
-    }
-    
-    const newHand = [
-      ...handData.cards.slice(0, indexToRemove),
-      ...handData.cards.slice(indexToRemove + 1)
-    ];
-
-    // Validar que após descartar, o jogador deve ter 9 cartas (ou menos se baixou combinações)
-    // Mas nunca mais de 9 se não baixou combinações
-    if (newHand.length > 9) {
-      throw new Error('Após descartar, você deve ter no máximo 9 cartas. Baixe combinações primeiro.');
+    // Verify player has the card
+    if (!handData.cards.includes(card)) {
+      throw new Error('Você não tem essa carta');
     }
 
-    // ALL READS MUST BE DONE BEFORE ANY WRITES
-    // Read deck state
-    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
-    const deckDoc = await transaction.get(deckRef);
-    const deckData = deckDoc.data() as DeckState;
+    // Remove card from hand
+    const newHand = handData.cards.filter(c => c !== card);
 
-    // Read all player documents that might need updates
+    // Read all player documents for updates
     const allPlayerRefs: Array<{ ref: any; id: string }> = [];
-    if (newHand.length === 0) {
-      // If going out, need to read all players
-      for (const playerId of roomData.playerOrder) {
-        allPlayerRefs.push({
-          ref: doc(db, 'rooms', roomId, 'players', playerId),
-          id: playerId,
-        });
-      }
-    } else {
-      // If not going out, need to read current and next player
-      const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
-      const nextPlayerId = roomData.playerOrder[nextTurnIndex];
-      allPlayerRefs.push(
-        { ref: doc(db, 'rooms', roomId, 'players', userId), id: userId },
-        { ref: doc(db, 'rooms', roomId, 'players', nextPlayerId), id: nextPlayerId }
-      );
+    for (const playerId of roomData.playerOrder) {
+      allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
     }
-    
-    // Read all player documents
-    const playerDocs = await Promise.all(
-      allPlayerRefs.map(({ ref }) => transaction.get(ref))
-    );
+    const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
 
-    // NOW ALL WRITES - After all reads are complete
+    // Find current player index
+    const currentPlayerIndex = roomData.playerOrder.indexOf(userId);
+    const allPlayerRefsWithIndex = allPlayerRefs.map((ref, idx) => ({ ...ref, index: idx }));
+
     transaction.update(handRef, {
       cards: newHand,
-    });
-
-    transaction.update(deckRef, {
-      discard: [...deckData.discard, card],
     });
 
     // If player has no cards left after discarding, they go out (bater)
@@ -557,29 +584,93 @@ export const discardCard = async (roomId: string, card: Card, cardIndex?: number
         }
       });
     } else {
-      // Move to next player
-      const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
-      
-      // Reset hasDrawnThisTurn for current player (they finished their turn)
-      transaction.update(allPlayerRefs[0].ref, {
-        hasDrawnThisTurn: false,
-      });
-      
-      // Reset hasDrawnThisTurn for next player (starting their turn)
-      transaction.update(allPlayerRefs[1].ref, {
-        hasDrawnThisTurn: false,
-      });
-      
-      // Check if first pass is complete (all players have played once)
-      // When nextTurnIndex becomes 0, it means we've completed a full cycle
-      const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
+      // If paused by this player, check if they can go out now
+      if (isPausedByMe) {
+        // Check if player can go out with current hand
+        const { canGoOutWithScenarios } = await import('./rules');
+        const scenarioCheck = canGoOutWithScenarios(newHand, roomData.discardTop);
+        
+        if (scenarioCheck.canGoOut && scenarioCheck.scenario) {
+          // Player can go out! Use the scenario
+          const allMeldCards = scenarioCheck.scenario.melds.flatMap(m => m.cards);
+          const discardCardForGoOut = scenarioCheck.scenario.discardCard || null;
+          
+          // Verify all cards are used
+          const allCards = discardCardForGoOut ? [...allMeldCards, discardCardForGoOut] : allMeldCards;
+          if (allCards.length !== newHand.length) {
+            // Not all cards used, just discard normally
+            const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+            const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
+            
+            transaction.update(allPlayerRefs[0].ref, {
+              hasDrawnThisTurn: false,
+            });
+            
+            transaction.update(allPlayerRefs[1].ref, {
+              hasDrawnThisTurn: false,
+            });
+            
+            transaction.update(roomRef, {
+              discardTop: card,
+              turnIndex: nextTurnIndex,
+              lastAction: 'Descartou uma carta',
+              firstPassComplete: firstPassComplete,
+              isPaused: false,
+              pausedBy: deleteField(),
+            });
+          } else {
+            // All cards used - player goes out!
+            // This will be handled by a separate goOut call
+            // For now, just discard and let the UI handle going out
+            throw new Error('Você pode bater! Use o botão "Bater!" novamente.');
+          }
+        } else {
+          // Cannot go out, just discard normally and unpause
+          const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+          const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
+          
+          transaction.update(allPlayerRefs[0].ref, {
+            hasDrawnThisTurn: false,
+          });
+          
+          transaction.update(allPlayerRefs[1].ref, {
+            hasDrawnThisTurn: false,
+          });
+          
+          transaction.update(roomRef, {
+            discardTop: card,
+            turnIndex: nextTurnIndex,
+            lastAction: 'Descartou uma carta',
+            firstPassComplete: firstPassComplete,
+            isPaused: false,
+            pausedBy: deleteField(),
+          });
+        }
+      } else {
+        // Normal turn - move to next player
+        const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
+        
+        // Reset hasDrawnThisTurn for current player (they finished their turn)
+        transaction.update(allPlayerRefs[0].ref, {
+          hasDrawnThisTurn: false,
+        });
+        
+        // Reset hasDrawnThisTurn for next player (starting their turn)
+        transaction.update(allPlayerRefs[1].ref, {
+          hasDrawnThisTurn: false,
+        });
+        
+        // Check if first pass is complete (all players have played once)
+        // When nextTurnIndex becomes 0, it means we've completed a full cycle
+        const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
 
-      transaction.update(roomRef, {
-        discardTop: card,
-        turnIndex: nextTurnIndex,
-        lastAction: 'Descartou uma carta',
-        firstPassComplete: firstPassComplete,
-      });
+        transaction.update(roomRef, {
+          discardTop: card,
+          turnIndex: nextTurnIndex,
+          lastAction: 'Descartou uma carta',
+          firstPassComplete: firstPassComplete,
+        });
+      }
     }
   });
 };
@@ -595,18 +686,20 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
     const roomData = roomDoc.data() as Room;
 
     // Check if game is paused
-    if (roomData.isPaused && roomData.pausedBy !== userId) {
+    const isPausedByMe = roomData.isPaused && roomData.pausedBy === userId;
+    if (roomData.isPaused && !isPausedByMe) {
       throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
     }
 
-    // Verify it's player's turn
+    // Verify it's player's turn OR player paused the game (trying to go out)
     const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
-    if (currentPlayerId !== userId) {
+    if (currentPlayerId !== userId && !isPausedByMe) {
       throw new Error('Não é seu turno');
     }
 
     // Block laying down melds until all players have played at least once in current round
-    if (!roomData.firstPassComplete) {
+    // UNLESS player is trying to go out during pause
+    if (!roomData.firstPassComplete && !isPausedByMe) {
       throw new Error('Não é permitido baixar combinações na primeira vez de cada jogador na rodada');
     }
 
@@ -673,23 +766,21 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
 
     // If player has no cards left after laying down melds, they go out (bater)
     if (newHand.length === 0) {
-      // Read all player documents to reset blocks
+      transaction.update(roomRef, {
+        status: 'roundEnd',
+        discardTop: roomData.discardTop, // No new discard, use existing
+        winnerId: userId,
+        lastAction: 'Bateu!',
+        isPaused: false,
+        pausedBy: deleteField(),
+      });
+      // Reset all player blocks and hasDrawnThisTurn for next round
       const allPlayerRefs: Array<{ ref: any; id: string }> = [];
       for (const playerId of roomData.playerOrder) {
         allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
       }
       const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
 
-      // Player goes out by laying down all cards
-      transaction.update(roomRef, {
-        status: 'roundEnd',
-        winnerId: userId,
-        lastAction: 'Bateu!',
-        isPaused: false,
-        pausedBy: deleteField(),
-      });
-
-      // Reset all player blocks and hasDrawnThisTurn for next round
       playerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
           const playerData = playerDoc.data() as Player;
@@ -708,8 +799,8 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
   });
 };
 
-// Attempt to go out (bater) - can be called out of turn
-// Returns true if successful, false if failed (player gets blocked)
+// Attempt to go out (bater) - can be called out of turn during pause
+// This validates and completes the go out action
 export const attemptGoOut = async (
   roomId: string,
   scenario: GoOutScenario
@@ -753,11 +844,11 @@ export const attemptGoOut = async (
         }
       }
 
-      // Temporarily removed blocking check for testing
+      // Verify game is paused by this player
       const isMyTurn = roomData.playerOrder[roomData.turnIndex] === userId;
-      // if (playerData.isBlocked && !isMyTurn) {
-      //   throw new Error('Você está bloqueado. Só pode bater na sua vez.');
-      // }
+      if (!isMyTurn && (!roomData.isPaused || roomData.pausedBy !== userId)) {
+        throw new Error('Você precisa pausar o jogo primeiro clicando em "Bater!"');
+      }
 
       // Validate scenario
       let finalHand = [...handData.cards];
@@ -804,21 +895,16 @@ export const attemptGoOut = async (
         discardCard = scenario.discardCard || null; // Random card becomes discard
       } else if (scenario.type === 'pickupDiscard') {
         // Off-turn pickup from discard to go out
+        // The discard card should already be in hand (picked up when pause started)
         discardTopCard = roomData.discardTop;
         if (!discardTopCard) {
           throw new Error('Sem carta no descarte para usar ao bater');
         }
 
-        if (!deckData.discard.length || deckData.discard[deckData.discard.length - 1] !== discardTopCard) {
-          throw new Error('Estado do descarte inconsistente');
+        // Verify the discard card is in hand (it was picked up when pause started)
+        if (!finalHand.includes(discardTopCard)) {
+          throw new Error('Carta do descarte deve estar na sua mão');
         }
-
-        // Note: We'll update the deck later, after all reads
-        // For now, just prepare the new discard state
-        const newDiscard = deckData.discard.slice(0, -1);
-
-        // Incluir a carta do descarte na mão para validação
-        finalHand = [...finalHand, discardTopCard];
 
         const allMeldCards = scenario.melds.flatMap(m => m.cards);
         // Certificar que a carta do descarte está sendo usada
@@ -830,7 +916,7 @@ export const attemptGoOut = async (
         const temp = [...finalHand];
         for (const c of allMeldCards) {
           const idx = temp.indexOf(c);
-          if (idx === -1) throw new Error('Você não tem todas essas cartas (descarte + mão)');
+          if (idx === -1) throw new Error('Você não tem todas essas cartas');
           temp.splice(idx, 1);
         }
 
@@ -884,14 +970,11 @@ export const attemptGoOut = async (
 
       // Update deck state (for pickupDiscard scenario or adding discard card)
       if (scenario.type === 'pickupDiscard') {
-        const newDiscard = deckData.discard.slice(0, -1);
+        // Card was already removed from discard when pause started
+        // Just add discard card if any
         if (discardCard) {
           transaction.update(deckRef, { 
-            discard: [...newDiscard, discardCard],
-          });
-        } else {
-          transaction.update(deckRef, { 
-            discard: newDiscard,
+            discard: [...deckData.discard, discardCard],
           });
         }
       } else if (discardCard) {
@@ -911,15 +994,6 @@ export const attemptGoOut = async (
         pausedBy: deleteField(),
       });
 
-      // NOW ALL WRITES - After all reads are complete
-      // If not player's turn, pause the game
-      if (!isMyTurn && !roomData.isPaused) {
-        transaction.update(roomRef, {
-          isPaused: true,
-          pausedBy: userId,
-        });
-      }
-
       // Reset all player blocks for next round (using already-read docs)
       allPlayerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
@@ -928,7 +1002,7 @@ export const attemptGoOut = async (
             transaction.update(allPlayerRefs[index].ref, { isBlocked: false });
           }
         }
-      })
+      });
     });
 
     return { success: true };
@@ -1071,249 +1145,88 @@ export const leaveRoom = async (roomId: string): Promise<void> => {
   if (!userId) throw new Error('User not authenticated');
 
   await runTransaction(db, async (transaction) => {
-    // First, do all reads
     const roomRef = doc(db, 'rooms', roomId);
     const roomDoc = await transaction.get(roomRef);
-    
-    if (!roomDoc.exists()) {
-      return; // Room doesn't exist, nothing to do
-    }
-
     const roomData = roomDoc.data() as Room;
 
-    // Read hand doc to check if it exists
-    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
-    const handDoc = await transaction.get(handRef);
-
-    // Now do all writes
     // Remove player from playerOrder
     const newPlayerOrder = roomData.playerOrder.filter(id => id !== userId);
-    
-    // If player was the owner and there are other players, transfer ownership
-    let newOwnerId = roomData.ownerId;
+
+    // If player was owner and there are other players, transfer ownership
     if (roomData.ownerId === userId && newPlayerOrder.length > 0) {
-      newOwnerId = newPlayerOrder[0];
-    }
-
-    // Update room
-    transaction.update(roomRef, {
-      playerOrder: newPlayerOrder,
-      ownerId: newOwnerId,
-    });
-
-    // Delete player doc
-    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
-    transaction.delete(playerRef);
-
-    // Delete player's hand if exists
-    if (handDoc.exists()) {
-      transaction.delete(handRef);
-    }
-  });
-};
-
-// Add card to existing meld (layoff)
-export const addCardToMeld = async (roomId: string, meldId: string, card: Card): Promise<void> => {
-  const userId = getCurrentUserId();
-  if (!userId) throw new Error('User not authenticated');
-
-  await runTransaction(db, async (transaction) => {
-    const roomRef = doc(db, 'rooms', roomId);
-    const roomDoc = await transaction.get(roomRef);
-    const roomData = roomDoc.data() as Room;
-
-    // Check if game is paused
-    if (roomData.isPaused && roomData.pausedBy !== userId) {
-      throw new Error('Jogo pausado. Aguarde o jogador terminar de tentar bater.');
-    }
-
-    // Verify it's player's turn
-    const currentPlayerId = roomData.playerOrder[roomData.turnIndex];
-    if (currentPlayerId !== userId) {
-      throw new Error('Não é seu turno');
-    }
-
-    // Verify rules allow layoff
-    if (!roomData.rules.allowLayoff) {
-      throw new Error('Adicionar cartas às combinações não está permitido');
-    }
-
-    // Get player's hand
-    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
-    const handDoc = await transaction.get(handRef);
-    const handData = handDoc.data() as Hand;
-
-    if (!handData.cards.includes(card)) {
-      throw new Error('Carta não está na sua mão');
-    }
-
-    // Get meld
-    const meldRef = doc(db, 'rooms', roomId, 'melds', meldId);
-    const meldDoc = await transaction.get(meldRef);
-    
-    if (!meldDoc.exists()) {
-      throw new Error('Combinação não encontrada');
-    }
-
-    const meldData = meldDoc.data() as MeldDoc;
-    
-    // Validate card can be added
-    const meld: Meld = {
-      type: meldData.type,
-      cards: meldData.cards,
-    };
-    
-    if (!canAddCardToMeld(card, meld)) {
-      throw new Error('Esta carta não pode ser adicionada a esta combinação');
-    }
-
-    // Remove card from hand
-    const newHand = handData.cards.filter(c => c !== card);
-
-    // Add card to meld
-    const updatedMeldCards = [...meldData.cards, card];
-    
-    // Sort meld cards if it's a sequence
-    if (meldData.type === 'sequence') {
-      updatedMeldCards.sort((a, b) => {
-        const cardA = parseCard(a);
-        const cardB = parseCard(b);
-        return getRankValue(cardA.rank) - getRankValue(cardB.rank);
+      transaction.update(roomRef, {
+        ownerId: newPlayerOrder[0],
+        playerOrder: newPlayerOrder,
+      });
+    } else if (newPlayerOrder.length === 0) {
+      // If no players left, delete room
+      transaction.delete(roomRef);
+    } else {
+      transaction.update(roomRef, {
+        playerOrder: newPlayerOrder,
       });
     }
 
-    transaction.update(handRef, {
-      cards: newHand,
-    });
+    // Delete player document
+    const playerRef = doc(db, 'rooms', roomId, 'players', userId);
+    transaction.delete(playerRef);
 
-    transaction.update(meldRef, {
-      cards: updatedMeldCards,
-    });
-
-    transaction.update(roomRef, {
-      lastAction: 'Adicionou carta a uma combinação',
-    });
-  });
-};
-
-// Reorder cards in hand
-export const reorderHand = async (roomId: string, newCardOrder: Card[]): Promise<void> => {
-  const userId = getCurrentUserId();
-  if (!userId) throw new Error('User not authenticated');
-
-  await runTransaction(db, async (transaction) => {
+    // Delete player's hand
     const handRef = doc(db, 'rooms', roomId, 'hands', userId);
-    const handDoc = await transaction.get(handRef);
-    const handData = handDoc.data() as Hand;
-
-    // Verify all cards are present
-    if (newCardOrder.length !== handData.cards.length) {
-      throw new Error('Número de cartas não corresponde');
-    }
-
-    const hasAllCards = newCardOrder.every(card => handData.cards.includes(card));
-    if (!hasAllCards) {
-      throw new Error('Cartas inválidas');
-    }
-
-    // Update hand with new order
-    transaction.update(handRef, {
-      cards: newCardOrder,
-    });
+    transaction.delete(handRef);
   });
 };
 
 // Subscribe to room updates
-export const subscribeToRoom = (roomId: string, callback: (room: Room) => void) => {
+export const subscribeToRoom = (roomId: string, callback: (room: Room) => void): (() => void) => {
   const roomRef = doc(db, 'rooms', roomId);
-  return onSnapshot(roomRef, (snapshot) => {
-    if (snapshot.exists()) {
-      callback({ id: snapshot.id, ...snapshot.data() } as Room);
+  return onSnapshot(roomRef, (doc) => {
+    if (doc.exists()) {
+      callback({ id: doc.id, ...doc.data() } as Room);
     }
   });
 };
 
-// Subscribe to players
-export const subscribeToPlayers = (roomId: string, callback: (players: Player[]) => void) => {
+// Subscribe to players in a room
+export const subscribeToPlayers = (roomId: string, callback: (players: Player[]) => void): (() => void) => {
   const playersRef = collection(db, 'rooms', roomId, 'players');
   return onSnapshot(playersRef, (snapshot) => {
-    const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
+    const players: Player[] = [];
+    snapshot.forEach((doc) => {
+      players.push({ id: doc.id, ...doc.data() } as Player);
+    });
     callback(players);
   });
 };
 
 // Subscribe to player's hand
-export const subscribeToHand = (roomId: string, playerId: string, callback: (hand: Hand) => void) => {
+export const subscribeToHand = (roomId: string, playerId: string, callback: (hand: Hand) => void): (() => void) => {
   const handRef = doc(db, 'rooms', roomId, 'hands', playerId);
-  return onSnapshot(handRef, (snapshot) => {
-    if (snapshot.exists()) {
-      callback(snapshot.data() as Hand);
+  return onSnapshot(handRef, (doc) => {
+    if (doc.exists()) {
+      callback(doc.data() as Hand);
+    }
+  });
+};
+
+// Subscribe to deck state
+export const subscribeToDeckState = (roomId: string, callback: (deckState: DeckState) => void): (() => void) => {
+  const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+  return onSnapshot(deckRef, (doc) => {
+    if (doc.exists()) {
+      callback(doc.data() as DeckState);
     }
   });
 };
 
 // Subscribe to melds
-export const subscribeToMelds = (roomId: string, callback: (melds: MeldDoc[]) => void) => {
+export const subscribeToMelds = (roomId: string, callback: (melds: MeldDoc[]) => void): (() => void) => {
   const meldsRef = collection(db, 'rooms', roomId, 'melds');
   return onSnapshot(meldsRef, (snapshot) => {
-    const melds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MeldDoc));
+    const melds: MeldDoc[] = [];
+    snapshot.forEach((doc) => {
+      melds.push({ id: doc.id, ...doc.data() } as MeldDoc);
+    });
     callback(melds);
-  });
-};
-
-// Subscribe to deck state
-export const subscribeToDeckState = (roomId: string, callback: (deck: DeckState) => void) => {
-  const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
-  return onSnapshot(deckRef, (snapshot) => {
-    if (snapshot.exists()) {
-      callback(snapshot.data() as DeckState);
-    }
-  });
-};
-
-// Chat interfaces and functions
-export interface ChatMessage {
-  id: string;
-  uid: string;
-  name: string;
-  text: string;
-  createdAt: Timestamp;
-}
-
-// Send a chat message
-export const sendChatMessage = async (roomId: string, text: string): Promise<void> => {
-  const userId = getCurrentUserId();
-  if (!userId) throw new Error('User not authenticated');
-
-  const userData = getCurrentUserData();
-  if (!userData) throw new Error('User data not available');
-
-  if (!text.trim()) {
-    throw new Error('Mensagem não pode estar vazia');
-  }
-
-  const chatRef = doc(collection(db, 'rooms', roomId, 'chat'));
-  await setDoc(chatRef, {
-    uid: userId,
-    name: userData.name,
-    text: text.trim(),
-    createdAt: serverTimestamp() as Timestamp,
-  });
-};
-
-// Subscribe to chat messages
-export const subscribeToChat = (roomId: string, callback: (messages: ChatMessage[]) => void) => {
-  const chatRef = collection(db, 'rooms', roomId, 'chat');
-  const q = query(chatRef);
-  
-  return onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage))
-      .sort((a, b) => {
-        // Sort by timestamp
-        if (!a.createdAt || !b.createdAt) return 0;
-        return a.createdAt.toMillis() - b.createdAt.toMillis();
-      });
-    callback(messages);
   });
 };
