@@ -9,7 +9,7 @@ import {
 } from '../lib/firestoreGame';
 import { Card, generateDoubleDeck, shuffleDeck } from '../lib/deck';
 import { calculateHandPoints } from '../lib/rules';
-import { runTransaction, doc, deleteField } from 'firebase/firestore';
+import { runTransaction, doc, deleteField, collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAppStore } from '../app/store';
 import { useDialog } from '../contexts/DialogContext';
@@ -111,6 +111,13 @@ export function RoundEnd({ room }: RoundEndProps) {
 
         playerOrder.forEach((playerId, index) => {
           hands[playerId] = deck.slice(index * 9, (index + 1) * 9);
+        });
+
+        // Delete all melds from previous round
+        const meldsRef = collection(db, 'rooms', room.id, 'melds');
+        const meldsSnapshot = await getDocs(meldsRef);
+        meldsSnapshot.forEach((meldDoc) => {
+          transaction.delete(meldDoc.ref);
         });
 
         // Remaining cards go to stock
