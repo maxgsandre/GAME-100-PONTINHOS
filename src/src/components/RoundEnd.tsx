@@ -9,7 +9,7 @@ import {
 } from '../lib/firestoreGame';
 import { Card, generateDoubleDeck, shuffleDeck } from '../lib/deck';
 import { calculateHandPoints } from '../lib/rules';
-import { runTransaction, doc } from 'firebase/firestore';
+import { runTransaction, doc, deleteField } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAppStore } from '../app/store';
 import { useDialog } from '../contexts/DialogContext';
@@ -125,6 +125,7 @@ export function RoundEnd({ room }: RoundEndProps) {
         const newRound = currentRound + 1;
 
         // Update room to start new round
+        // Use deleteField() to remove winnerId and pausedBy instead of setting to null
         transaction.update(roomRef, {
           status: 'playing',
           round: newRound,
@@ -133,7 +134,8 @@ export function RoundEnd({ room }: RoundEndProps) {
           lastAction: 'Jogo iniciado',
           firstPassComplete: false,
           isPaused: false,
-          winnerId: null,
+          pausedBy: deleteField(),
+          winnerId: deleteField(),
         });
 
         // Create hands
