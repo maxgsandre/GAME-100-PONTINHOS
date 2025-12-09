@@ -813,9 +813,9 @@ export const attemptGoOut = async (
           throw new Error('Estado do descarte inconsistente');
         }
 
-        // Remove topo do descarte
+        // Note: We'll update the deck later, after all reads
+        // For now, just prepare the new discard state
         const newDiscard = deckData.discard.slice(0, -1);
-        transaction.update(deckRef, { discard: newDiscard, discardTop: newDiscard.length ? newDiscard[newDiscard.length - 1] : null });
 
         // Incluir a carta do descarte na mão para validação
         finalHand = [...finalHand, discardTopCard];
@@ -882,9 +882,20 @@ export const attemptGoOut = async (
         });
       }
 
-      // Add discard card to pile (if any)
-      // Note: deckData was already read at the beginning
-      if (discardCard) {
+      // Update deck state (for pickupDiscard scenario or adding discard card)
+      if (scenario.type === 'pickupDiscard') {
+        const newDiscard = deckData.discard.slice(0, -1);
+        if (discardCard) {
+          transaction.update(deckRef, { 
+            discard: [...newDiscard, discardCard],
+          });
+        } else {
+          transaction.update(deckRef, { 
+            discard: newDiscard,
+          });
+        }
+      } else if (discardCard) {
+        // Add discard card to pile
         transaction.update(deckRef, {
           discard: [...deckData.discard, discardCard],
         });
