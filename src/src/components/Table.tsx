@@ -53,6 +53,24 @@ export function Table({ room }: TableProps) {
 
   const isMyTurn = room.playerOrder[room.turnIndex] === userId;
 
+  // Auto-clear blocking on mount (temporary for testing)
+  useEffect(() => {
+    if (userId) {
+      const currentPlayer = players.find(p => p.id === userId);
+      if (currentPlayer?.isBlocked) {
+        // Clear blocking automatically
+        import('../lib/firebase').then(({ db }) => {
+          import('firebase/firestore').then(({ doc, updateDoc }) => {
+            const playerRef = doc(db, 'rooms', room.id, 'players', userId);
+            updateDoc(playerRef, { isBlocked: false }).catch(() => {
+              // Silently fail if there's an error
+            });
+          });
+        });
+      }
+    }
+  }, [players, userId, room.id]);
+
   useEffect(() => {
     const unsubscribePlayers = subscribeToPlayers(room.id, setPlayers);
     const unsubscribeHand = userId ? subscribeToHand(room.id, userId, setHand) : () => {};

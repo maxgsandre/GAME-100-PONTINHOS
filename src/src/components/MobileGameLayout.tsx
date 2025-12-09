@@ -239,8 +239,8 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
       danger: true,
       // "Bater!" button is ONLY for pausing when it's NOT your turn
       // When it's your turn, you automatically go out by discarding the last card
-      // Disable if: it's my turn OR (not my turn AND blocked)
-      disabled: isMyTurn || (isBlocked && !isMyTurn),
+      // Temporarily removed blocking check for testing
+      disabled: isMyTurn, // || (isBlocked && !isMyTurn),
     },
   ];
 
