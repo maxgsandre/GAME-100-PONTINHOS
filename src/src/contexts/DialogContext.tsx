@@ -33,7 +33,10 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
   const confirm = useCallback((opts: DialogOptions): Promise<boolean> => {
     return new Promise((resolve) => {
-      setOptions(opts);
+      setOptions({
+        ...opts,
+        message: typeof opts.message === 'string' ? opts.message : String(opts.message || ''),
+      });
       setIsAlert(false);
       setIsOpen(true);
       setResolvePromise(() => resolve);
@@ -42,7 +45,11 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
   const alert = useCallback((opts: DialogOptions): Promise<void> => {
     return new Promise((resolve) => {
-      setOptions({ ...opts, cancelText: undefined });
+      setOptions({
+        ...opts,
+        message: typeof opts.message === 'string' ? opts.message : String(opts.message || ''),
+        cancelText: undefined,
+      });
       setIsAlert(true);
       setIsOpen(true);
       setResolvePromise(() => {
