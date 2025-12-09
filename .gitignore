@@ -50,3 +50,7 @@ firestore-debug.log
 # OS
 Thumbs.db
 
+# Large image files in root (should be in src/public/)
+/favicon.png
+/Gemini_Generated_Image.png
+
