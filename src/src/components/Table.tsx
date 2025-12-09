@@ -133,6 +133,9 @@ export function Table({ room }: TableProps) {
       if (prevDiscardTopRef.current) {
         setPickedUpDiscardCard(prevDiscardTopRef.current);
       }
+      // Start timer immediately on pausing client to avoid waiting for Firestore timestamp sync
+      const deadline = room.pausedAt ? room.pausedAt.toMillis() + 30000 : Date.now() + 30000;
+      setPauseRemainingMs(Math.max(0, deadline - Date.now()));
     } else {
       setPickedUpDiscardCard(null);
     }
@@ -140,14 +143,14 @@ export function Table({ room }: TableProps) {
 
   // Track pause timer for ALL players (so everyone can see the progress)
   useEffect(() => {
-    if (!room.isPaused || !room.pausedBy || !room.pausedAt) {
+    if (!room.isPaused || !room.pausedBy) {
       setPauseRemainingMs(null);
       return;
     }
 
-    // Calculate remaining time based on pausedAt timestamp
+    // Calculate remaining time based on pausedAt timestamp (fallback to now)
     const updateRemaining = () => {
-      const pausedAtMs = room.pausedAt!.toMillis();
+      const pausedAtMs = room.pausedAt ? room.pausedAt.toMillis() : Date.now();
       const elapsed = Date.now() - pausedAtMs;
       const remaining = Math.max(0, 30000 - elapsed);
       setPauseRemainingMs(remaining);
@@ -615,9 +618,10 @@ export function Table({ room }: TableProps) {
 
   // Mapa de progresso de pausa por jogador (0..1) - visível para TODOS os jogadores
   const pauseProgressByPlayer = (() => {
-    if (!room.isPaused || !room.pausedBy || pauseRemainingMs === null) return undefined;
+    if (!room.isPaused || !room.pausedBy) return undefined;
     const total = 30000;
-    const progress = Math.min(1, Math.max(0, 1 - pauseRemainingMs / total));
+    const remaining = pauseRemainingMs ?? 30000;
+    const progress = Math.min(1, Math.max(0, 1 - remaining / total));
     return { [room.pausedBy]: progress };
   })();
 
