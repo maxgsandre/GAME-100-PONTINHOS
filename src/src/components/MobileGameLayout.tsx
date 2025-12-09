@@ -112,10 +112,10 @@ function PlayerAvatar({ player, position, pauseProgress }: { player: Player; pos
             <img
               src={player.photoURL}
               alt={player.name}
-              className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
+              className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
             />
           ) : (
-            <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : isBlocked ? 'border-red-400 bg-purple-600' : 'border-gray-400 bg-purple-600'}`}>
+            <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)] bg-purple-500' : isBlocked ? 'border-red-400 bg-purple-600' : 'border-gray-400 bg-purple-600'}`}>
               {player.name[0].toUpperCase()}
             </div>
           )}
@@ -126,7 +126,7 @@ function PlayerAvatar({ player, position, pauseProgress }: { player: Player; pos
           )}
         </div>
         <div className="flex flex-col items-center">
-          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : isBlocked ? 'text-red-400' : 'text-white'}`}>
+          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : isBlocked ? 'text-red-400' : 'text-white'}`}>
             {player.name}
           </span>
           <span className="text-[10px] md:text-xs lg:text-sm text-gray-300">{player.score} pts</span>
@@ -149,10 +149,10 @@ function PlayerAvatar({ player, position, pauseProgress }: { player: Player; pos
             <img
               src={player.photoURL}
               alt={player.name}
-              className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-green-400' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
+              className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
             />
           ) : (
-            <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-green-400 bg-purple-500' : isBlocked ? 'border-red-400 bg-purple-600' : 'border-gray-400 bg-purple-600'}`}>
+            <div className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-base lg:text-lg border-2 ${isTurn ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)] bg-purple-500' : isBlocked ? 'border-red-400 bg-purple-600' : 'border-gray-400 bg-purple-600'}`}>
               {player.name[0].toUpperCase()}
             </div>
           )}
@@ -163,7 +163,7 @@ function PlayerAvatar({ player, position, pauseProgress }: { player: Player; pos
           )}
         </div>
         <div className="flex flex-col items-center">
-          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-green-400' : isBlocked ? 'text-red-400' : 'text-white'}`}>
+          <span className={`text-xs md:text-sm lg:text-base font-semibold ${isTurn ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : isBlocked ? 'text-red-400' : 'text-white'}`}>
             {player.name}
           </span>
           <span className="text-[10px] md:text-xs lg:text-sm text-gray-300">{player.score} pts</span>
@@ -261,7 +261,7 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
             <div className="flex items-center gap-2 md:gap-3">
               <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-white">Rodada {round}</h1>
               {canPlay && (
-                <span className="bg-green-500 text-white text-[10px] md:text-xs lg:text-sm px-1.5 md:px-2 lg:px-3 py-0 md:py-0.5 rounded">Sua vez!</span>
+                <span className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black text-[10px] md:text-xs lg:text-sm px-1.5 md:px-2 lg:px-3 py-0 md:py-0.5 rounded shadow-[0_0_10px_rgba(250,204,21,0.6)] font-bold">Sua vez!</span>
               )}
               {/* Chat Button */}
               <button

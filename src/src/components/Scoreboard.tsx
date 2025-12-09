@@ -25,13 +25,13 @@ export function Scoreboard({ players, playerOrder, currentTurnIndex, currentUser
               key={player.id}
               className={`
                 p-3 rounded-lg flex justify-between items-center
-                ${isCurrentTurn ? 'bg-green-100 border-2 border-green-500' : 'bg-gray-50'}
+                ${isCurrentTurn ? 'bg-yellow-50 border-2 border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.4)]' : 'bg-gray-50'}
                 ${isCurrentUser ? 'ring-2 ring-blue-400' : ''}
               `}
             >
               <div className="flex items-center gap-2">
                 {isCurrentTurn && (
-                  <span className="text-green-600 text-xl">▶</span>
+                  <span className="text-yellow-500 text-xl drop-shadow-[0_0_6px_rgba(250,204,21,0.8)]">▶</span>
                 )}
                 {player.photoURL ? (
                   <img
@@ -49,7 +49,7 @@ export function Scoreboard({ players, playerOrder, currentTurnIndex, currentUser
                     {player.name} {isCurrentUser && '(Você)'}
                   </p>
                   {isCurrentTurn && (
-                    <p className="text-xs text-green-600">Vez dele</p>
+                    <p className="text-xs text-yellow-500 font-semibold drop-shadow-[0_0_4px_rgba(250,204,21,0.6)]">Vez dele</p>
                   )}
                 </div>
               </div>
