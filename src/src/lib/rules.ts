@@ -33,8 +33,10 @@ export const isValidSequence = (cards: Card[]): boolean => {
   const isConsecutive = (ranks: Rank[], mapper: (r: Rank) => number) => {
     // Sort values to check consecutiveness (order of input doesn't matter)
     const sortedValues = [...ranks].map(mapper).sort((a, b) => a - b);
-    for (let i = 1; i < sortedValues.length; i++) {
-      if (sortedValues[i] !== sortedValues[i - 1] + 1) return false;
+    // Remove duplicates for checking consecutiveness
+    const uniqueValues = Array.from(new Set(sortedValues));
+    for (let i = 1; i < uniqueValues.length; i++) {
+      if (uniqueValues[i] !== uniqueValues[i - 1] + 1) return false;
     }
     return true;
   };
@@ -53,6 +55,8 @@ export const isValidSequence = (cards: Card[]): boolean => {
 };
 
 // Check if cards form a valid set/trinca (3+ cards, same rank, different suits)
+// IMPORTANT: For sets, we allow duplicate suits (e.g., 4 Ases with 2 of same suit is valid)
+// The rule is: same rank, and at least 3 cards with different suits OR at least 3 cards total
 export const isValidSet = (cards: Card[]): boolean => {
   if (cards.length < 3) return false;
   
@@ -62,11 +66,11 @@ export const isValidSet = (cards: Card[]): boolean => {
   // All cards must be same rank
   if (!parsed.every(c => c.rank === rank)) return false;
   
-  // All cards must have different suits
-  const suits = new Set(parsed.map(c => c.suit));
-  if (suits.size !== parsed.length) return false;
-  
-  return true;
+  // For sets: we need at least 3 cards with different suits
+  // But we allow duplicates (e.g., 4 Ases: A♥, A♦, A♣, A♠ is valid, or A♥, A♦, A♣, A♥ is also valid)
+  const uniqueSuits = new Set(parsed.map(c => c.suit));
+  // At least 3 different suits OR at least 3 cards total (allowing duplicates)
+  return uniqueSuits.size >= 3 || cards.length >= 3;
 };
 
 // Validate a meld (order of cards doesn't matter)
@@ -85,6 +89,76 @@ export const isValidMeld = (cards: Card[]): { valid: boolean; type?: MeldType } 
   }
   
   return { valid: false };
+};
+
+// Find the best valid meld from selected cards, allowing expansion
+// This function finds a base meld (at least 3 cards) and includes all cards that can expand it
+export const findExpandableMeld = (cards: Card[]): { valid: boolean; type?: MeldType; cards: Card[] } => {
+  if (cards.length < 3) {
+    return { valid: false, cards: [] };
+  }
+
+  // Try to find a base sequence (at least 3 cards)
+  const bySuit: Record<Suit, Card[]> = { H: [], D: [], C: [], S: [] };
+  cards.forEach(card => {
+    const { suit } = parseCard(card);
+    bySuit[suit].push(card);
+  });
+
+  // Try sequences first
+  for (const suit in bySuit) {
+    const suitCards = bySuit[suit as Suit];
+    if (suitCards.length < 3) continue;
+    
+    // Sort by rank value
+    const sorted = suitCards.sort((a, b) => {
+      const rankA = getRankValue(parseCard(a).rank);
+      const rankB = getRankValue(parseCard(b).rank);
+      return rankA - rankB;
+    });
+    
+    // Try to find a base sequence of 3+ cards
+    for (let start = 0; start <= sorted.length - 3; start++) {
+      for (let end = start + 3; end <= sorted.length; end++) {
+        const baseSequence = sorted.slice(start, end);
+        if (isValidSequence(baseSequence)) {
+          // Found a valid base sequence, check if all remaining cards in this suit can be added
+          const remaining = sorted.filter((_, idx) => idx < start || idx >= end);
+          const canAddAll = remaining.every(card => {
+            return isValidSequence([...baseSequence, card]);
+          });
+          
+          if (canAddAll || remaining.length === 0) {
+            // All cards in this suit form a valid expanded sequence
+            return { valid: true, type: 'sequence', cards: suitCards };
+          }
+        }
+      }
+    }
+  }
+
+  // Try sets (same rank)
+  const byRank: Record<Rank, Card[]> = {
+    'A': [], '2': [], '3': [], '4': [], '5': [], '6': [], '7': [], '8': [], '9': [],
+    'T': [], 'J': [], 'Q': [], 'K': []
+  };
+  
+  cards.forEach(card => {
+    const { rank } = parseCard(card);
+    byRank[rank].push(card);
+  });
+
+  for (const rank in byRank) {
+    const rankCards = byRank[rank as Rank];
+    if (rankCards.length >= 3) {
+      // All cards of the same rank can form a set (even if some suits are duplicated)
+      if (isValidSet(rankCards)) {
+        return { valid: true, type: 'set', cards: rankCards };
+      }
+    }
+  }
+
+  return { valid: false, cards: [] };
 };
 
 // Calculate points for a card
@@ -114,7 +188,7 @@ export const suggestMelds = (cards: Card[]): Meld[] => {
     const { suit } = parseCard(card);
     bySuit[suit].push(card);
   });
-  
+
   for (const suit in bySuit) {
     const suitCards = bySuit[suit as Suit];
     if (suitCards.length < 3) continue;
@@ -159,7 +233,7 @@ export const suggestMelds = (cards: Card[]): Meld[] => {
     const { rank } = parseCard(card);
     byRank[rank].push(card);
   });
-  
+
   for (const rank in byRank) {
     const rankCards = byRank[rank as Rank];
     if (rankCards.length >= 3 && isValidSet(rankCards)) {
@@ -220,21 +294,32 @@ export const validateMultipleMelds = (cards: Card[], melds: Meld[]): { valid: bo
     }
   }
 
-  // Check for overlapping cards
+  // Check for overlapping cards - count occurrences
   const allMeldCards: Card[] = [];
   for (const meld of melds) {
     for (const card of meld.cards) {
-      if (allMeldCards.includes(card)) {
-        return { valid: false, error: 'Cartas duplicadas entre combinações' };
-      }
       allMeldCards.push(card);
     }
   }
-
-  // Check all meld cards are in hand
+  
+  // Count how many times each card appears in melds vs in hand
+  const meldCardCounts = new Map<string, number>();
   for (const card of allMeldCards) {
-    if (!cards.includes(card)) {
-      return { valid: false, error: 'Carta não está na sua mão' };
+    const key = card;
+    meldCardCounts.set(key, (meldCardCounts.get(key) || 0) + 1);
+  }
+  
+  const handCardCounts = new Map<string, number>();
+  for (const card of cards) {
+    const key = card;
+    handCardCounts.set(key, (handCardCounts.get(key) || 0) + 1);
+  }
+  
+  // Check if hand has enough of each card
+  for (const [card, neededCount] of meldCardCounts.entries()) {
+    const availableCount = handCardCounts.get(card) || 0;
+    if (availableCount < neededCount) {
+      return { valid: false, error: 'Carta não está na sua mão ou não há cartas suficientes' };
     }
   }
 
@@ -283,16 +368,16 @@ export const findAllMelds = (cards: Card[]): Meld[] => {
     const { rank } = parseCard(card);
     byRank[rank].push(card);
   });
-  
+
   for (const rank in byRank) {
     const rankCards = byRank[rank as Rank];
     if (rankCards.length >= 3) {
       // Generate all combinations of 3+ cards
       for (let i = 3; i <= rankCards.length; i++) {
-        // Simple: just check if all suits are different
-        const suits = new Set(rankCards.map(c => parseCard(c).suit));
-        if (suits.size === rankCards.length && isValidSet(rankCards)) {
+        // For sets, we allow duplicate suits (e.g., 4 Ases with 2 of same suit)
+        if (isValidSet(rankCards)) {
           allMelds.push({ type: 'set', cards: [...rankCards] });
+          break; // Only add the full set once
         }
       }
     }
@@ -516,4 +601,4 @@ export const canGoOutWithScenarios = (
   }
 
   return { canGoOut: false, error: 'Não foi possível bater com essas cartas' };
-}
+};
