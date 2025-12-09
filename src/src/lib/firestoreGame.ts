@@ -186,7 +186,8 @@ export const startGame = async (roomId: string): Promise<void> => {
       throw new Error('Mínimo de 2 jogadores necessário');
     }
 
-    if (roomData.status !== 'lobby') {
+    // Allow starting from 'lobby' (first game) or 'roundEnd' (next round)
+    if (roomData.status !== 'lobby' && roomData.status !== 'roundEnd') {
       throw new Error('Jogo já iniciado');
     }
 

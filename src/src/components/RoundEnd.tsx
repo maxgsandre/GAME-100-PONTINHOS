@@ -6,8 +6,8 @@ import {
   Hand,
   subscribeToPlayers,
   subscribeToHand,
-  startGame,
 } from '../lib/firestoreGame';
+import { Card, generateDoubleDeck, shuffleDeck } from '../lib/deck';
 import { calculateHandPoints } from '../lib/rules';
 import { runTransaction, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -65,28 +65,87 @@ export function RoundEnd({ room }: RoundEndProps) {
     try {
       setProcessing(true);
 
-      // Update player scores
+      // Update player scores and start new round in ONE transaction
+      // This avoids the intermediate 'lobby' state and permission issues
       await runTransaction(db, async (transaction) => {
         const roomRef = doc(db, 'rooms', room.id);
+        const roomDoc = await transaction.get(roomRef);
 
-        // Update each player's score
+        if (!roomDoc.exists()) {
+          throw new Error('Sala não encontrada');
+        }
+
+        const roomData = roomDoc.data() as Room;
+
+        // Verify it's still roundEnd
+        if (roomData.status !== 'roundEnd') {
+          throw new Error('Status da sala mudou. Recarregue a página.');
+        }
+
+        // Read all player documents
+        const playerDocs: any[] = [];
+        for (const playerId of roomData.playerOrder) {
+          const playerRef = doc(db, 'rooms', room.id, 'players', playerId);
+          const playerDoc = await transaction.get(playerRef);
+          if (playerDoc.exists()) {
+            playerDocs.push(playerDoc);
+          }
+        }
+
+        // Update each player's score and reset game state
         for (const score of scores) {
           const playerRef = doc(db, 'rooms', room.id, 'players', score.playerId);
           transaction.update(playerRef, {
             score: score.totalScore,
+            hasDrawnThisTurn: false,
+            isBlocked: false,
           });
         }
 
-        // Reset room for new round
-        transaction.update(roomRef, {
-          status: 'lobby',
-          winnerId: null,
-          lastAction: 'Aguardando próxima rodada',
-        });
-      });
+        // Generate and shuffle deck
+        const deck = shuffleDeck(generateDoubleDeck());
 
-      // Start new round automatically
-      await startGame(room.id);
+        // Deal 9 cards to each player
+        const playerOrder = roomData.playerOrder;
+        const hands: Record<string, Card[]> = {};
+
+        playerOrder.forEach((playerId, index) => {
+          hands[playerId] = deck.slice(index * 9, (index + 1) * 9);
+        });
+
+        // Remaining cards go to stock
+        const stock = deck.slice(playerOrder.length * 9);
+        
+        // First card of stock goes to discard
+        const firstDiscard = stock.pop()!;
+        const discard = [firstDiscard];
+
+        // Increment round
+        const currentRound = roomData.round || 0;
+        const newRound = currentRound + 1;
+
+        // Update room to start new round
+        transaction.update(roomRef, {
+          status: 'playing',
+          round: newRound,
+          turnIndex: 0,
+          discardTop: firstDiscard,
+          lastAction: 'Jogo iniciado',
+          firstPassComplete: false,
+          isPaused: false,
+          winnerId: null,
+        });
+
+        // Create hands
+        for (const playerId of playerOrder) {
+          const handRef = doc(db, 'rooms', room.id, 'hands', playerId);
+          transaction.set(handRef, { cards: hands[playerId] });
+        }
+
+        // Create deck state
+        const deckRef = doc(db, 'rooms', room.id, 'state', 'deck');
+        transaction.set(deckRef, { stock, discard });
+      });
     } catch (error: any) {
       console.error('Error starting next round:', error);
       await alert({ message: error.message || 'Erro ao iniciar próxima rodada' });
