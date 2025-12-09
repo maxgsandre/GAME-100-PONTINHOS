@@ -55,8 +55,10 @@ export const isValidSequence = (cards: Card[]): boolean => {
 };
 
 // Check if cards form a valid set/trinca (3+ cards, same rank, different suits)
-// IMPORTANT: For sets, we allow duplicate suits (e.g., 4 Ases with 2 of same suit is valid)
-// The rule is: same rank, and at least 3 cards with different suits OR at least 3 cards total
+// IMPORTANT: A trinca válida DEVE ter pelo menos 3 naipes diferentes
+// Só depois de ter a trinca válida, pode adicionar duplicatas
+// Exemplo válido: 4♠, 4♥, 4♦ (trinca) + 4♣ (duplicata) = válido
+// Exemplo inválido: 4♠, 4♠, 4♥ (não é trinca válida, tem apenas 2 naipes diferentes)
 export const isValidSet = (cards: Card[]): boolean => {
   if (cards.length < 3) return false;
   
@@ -66,11 +68,11 @@ export const isValidSet = (cards: Card[]): boolean => {
   // All cards must be same rank
   if (!parsed.every(c => c.rank === rank)) return false;
   
-  // For sets: we need at least 3 cards with different suits
-  // But we allow duplicates (e.g., 4 Ases: A♥, A♦, A♣, A♠ is valid, or A♥, A♦, A♣, A♥ is also valid)
+  // For sets: we MUST have at least 3 different suits for a valid trinca
+  // After having a valid trinca (3 different suits), we can add duplicates
   const uniqueSuits = new Set(parsed.map(c => c.suit));
-  // At least 3 different suits OR at least 3 cards total (allowing duplicates)
-  return uniqueSuits.size >= 3 || cards.length >= 3;
+  // Must have at least 3 different suits (this is the minimum for a valid trinca)
+  return uniqueSuits.size >= 3;
 };
 
 // Validate a meld (order of cards doesn't matter)
@@ -122,11 +124,40 @@ export const findExpandableMeld = (cards: Card[]): { valid: boolean; type?: Meld
       for (let end = start + 3; end <= sorted.length; end++) {
         const baseSequence = sorted.slice(start, end);
         if (isValidSequence(baseSequence)) {
-          // Found a valid base sequence, check if all remaining cards in this suit can be added
+          // Found a valid base sequence (at least 3 consecutive cards)
+          // Check if all remaining cards in this suit can be added consecutively
           const remaining = sorted.filter((_, idx) => idx < start || idx >= end);
-          const canAddAll = remaining.every(card => {
-            return isValidSequence([...baseSequence, card]);
-          });
+          
+          // For sequences, cards can only be added at the beginning or end
+          // Check if remaining cards can extend the sequence
+          let canAddAll = true;
+          let extendedSequence = [...baseSequence];
+          
+          for (const card of remaining) {
+            const cardRank = getRankValue(parseCard(card).rank);
+            const firstRank = getRankValue(parseCard(extendedSequence[0]).rank);
+            const lastRank = getRankValue(parseCard(extendedSequence[extendedSequence.length - 1]).rank);
+            
+            // Check if card can be added at the beginning
+            if (cardRank === firstRank - 1) {
+              extendedSequence = [card, ...extendedSequence];
+            }
+            // Check if card can be added at the end
+            else if (cardRank === lastRank + 1) {
+              extendedSequence = [...extendedSequence, card];
+            }
+            // Special case: Ace can be high (Q, K, A) or low (A, 2, 3)
+            else if (parseCard(card).rank === 'A' && parseCard(extendedSequence[extendedSequence.length - 1]).rank === 'K') {
+              extendedSequence = [...extendedSequence, card];
+            }
+            else if (parseCard(extendedSequence[0]).rank === 'A' && cardRank === 2) {
+              extendedSequence = [card, ...extendedSequence];
+            }
+            else {
+              canAddAll = false;
+              break;
+            }
+          }
           
           if (canAddAll || remaining.length === 0) {
             // All cards in this suit form a valid expanded sequence
@@ -151,9 +182,32 @@ export const findExpandableMeld = (cards: Card[]): { valid: boolean; type?: Meld
   for (const rank in byRank) {
     const rankCards = byRank[rank as Rank];
     if (rankCards.length >= 3) {
-      // All cards of the same rank can form a set (even if some suits are duplicated)
-      if (isValidSet(rankCards)) {
-        return { valid: true, type: 'set', cards: rankCards };
+      // First, try to find a valid base trinca (3 cards with 3 different suits)
+      // Then check if remaining cards can be added (duplicates)
+      const parsed = rankCards.map(parseCard);
+      const suits = parsed.map(c => c.suit);
+      
+      // Find all combinations of 3 cards to find a valid base trinca
+      for (let i = 0; i < rankCards.length - 2; i++) {
+        for (let j = i + 1; j < rankCards.length - 1; j++) {
+          for (let k = j + 1; k < rankCards.length; k++) {
+            const baseTrinca = [rankCards[i], rankCards[j], rankCards[k]];
+            const baseSuits = new Set([suits[i], suits[j], suits[k]]);
+            
+            // Check if this is a valid base trinca (3 different suits)
+            if (baseSuits.size === 3) {
+              // Found a valid base trinca, now check if all other cards can be added
+              const remaining = rankCards.filter((_, idx) => idx !== i && idx !== j && idx !== k);
+              
+              // All remaining cards must be of the same rank (already verified) and can be added
+              // Since they're the same rank, they can always be added to a set
+              const allCards = [...baseTrinca, ...remaining];
+              if (isValidSet(allCards)) {
+                return { valid: true, type: 'set', cards: allCards };
+              }
+            }
+          }
+        }
       }
     }
   }
