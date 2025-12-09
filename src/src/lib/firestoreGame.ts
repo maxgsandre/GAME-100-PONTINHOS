@@ -615,14 +615,46 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
     const handData = handDoc.data() as Hand;
 
     const allMeldCards = melds.flatMap(m => m.cards);
-    const hasAllCards = allMeldCards.every(card => handData.cards.includes(card));
-
-    if (!hasAllCards) {
-      throw new Error('Você não tem todas essas cartas');
+    
+    // Count how many times each card appears in melds
+    const meldCardCounts = new Map<string, number>();
+    for (const card of allMeldCards) {
+      const key = card; // Use card string as key
+      meldCardCounts.set(key, (meldCardCounts.get(key) || 0) + 1);
+    }
+    
+    // Count how many times each card appears in hand
+    const handCardCounts = new Map<string, number>();
+    for (const card of handData.cards) {
+      const key = card;
+      handCardCounts.set(key, (handCardCounts.get(key) || 0) + 1);
+    }
+    
+    // Verify player has enough of each card
+    for (const [card, neededCount] of meldCardCounts.entries()) {
+      const availableCount = handCardCounts.get(card) || 0;
+      if (availableCount < neededCount) {
+        throw new Error('Você não tem todas essas cartas');
+      }
     }
 
-    // Remove cards from hand
-    const newHand = handData.cards.filter(card => !allMeldCards.includes(card));
+    // Remove cards from hand - remove only the specific cards used, maintaining order
+    const newHand: Card[] = [];
+    const usedCounts = new Map<string, number>();
+    
+    for (const card of handData.cards) {
+      const key = card;
+      const needed = meldCardCounts.get(key) || 0;
+      const used = usedCounts.get(key) || 0;
+      
+      if (used < needed) {
+        // This card is used in a meld, skip it
+        usedCounts.set(key, used + 1);
+      } else {
+        // This card is not used (or we've already used all needed), keep it
+        newHand.push(card);
+      }
+    }
 
     transaction.update(handRef, {
       cards: newHand,
