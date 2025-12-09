@@ -28,7 +28,7 @@ service cloud.firestore {
       // Allow update if:
       // 1. User is a room member, OR
       // 2. User is joining (room in lobby, not full), OR
-      // 3. Owner is starting the game (changing status from lobby to playing)
+      // 3. Owner is starting the game (changing status from lobby to playing or roundEnd to playing)
       allow update: if isAuthenticated() && (
         isRoomMember(roomId) ||
         (
@@ -117,8 +117,19 @@ service cloud.firestore {
         // Room members can read all hands (to show card count to all players)
         allow read: if isAuthenticated() && isRoomMember(roomId);
         
-        // Only the player can update their own hand
-        allow update: if isAuthenticated() && request.auth.uid == playerId;
+        // Allow update if:
+        // 1. The player is updating their own hand, OR
+        // 2. Owner is updating hands when starting new round (status is roundEnd or lobby)
+        allow update: if isAuthenticated() && (
+          request.auth.uid == playerId ||
+          (
+            isRoomOwner(roomId) &&
+            (
+              get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'lobby' ||
+              get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'roundEnd'
+            )
+          )
+        );
         
         // Only the player can delete their own hand
         allow delete: if isAuthenticated() && request.auth.uid == playerId;
@@ -129,8 +140,25 @@ service cloud.firestore {
         // Room members can read state
         allow read: if isAuthenticated() && isRoomMember(roomId);
         
-        // Room members or owner can write state (transactions handle concurrency)
-        allow write: if isAuthenticated() && (isRoomMember(roomId) || isRoomOwner(roomId));
+        // Allow create if:
+        // 1. Room member is creating state, OR
+        // 2. Owner is creating state when starting game (status is lobby or roundEnd)
+        allow create: if isAuthenticated() && (
+          isRoomMember(roomId) ||
+          (
+            isRoomOwner(roomId) &&
+            (
+              get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'lobby' ||
+              get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'roundEnd'
+            )
+          )
+        );
+        
+        // Room members or owner can update state (transactions handle concurrency)
+        allow update: if isAuthenticated() && (isRoomMember(roomId) || isRoomOwner(roomId));
+        
+        // Only owner can delete state
+        allow delete: if isAuthenticated() && isRoomOwner(roomId);
       }
       
       // Melds subcollection
@@ -150,9 +178,9 @@ service cloud.firestore {
         allow delete: if false;
       }
       
-      // Chat subcollection (optional)
-      match /chat/{msgId} {
-        // Room members can read chat
+      // Messages subcollection (chat)
+      match /messages/{msgId} {
+        // Room members can read messages
         allow read: if isAuthenticated() && isRoomMember(roomId);
         
         // Room members can create messages
