@@ -51,7 +51,7 @@ export function Table({ room }: TableProps) {
   const [hasDrawn, setHasDrawn] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
-  const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null);
+  const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null); // only when player manually buys during pause
   const [pauseProgressByPlayer, setPauseProgressByPlayer] = useState<Record<string, number> | undefined>(undefined);
   const pauseStartRef = useRef<number | null>(null);
   const prevDiscardTopRef = useRef<Card | null>(null);
@@ -131,10 +131,6 @@ export function Table({ room }: TableProps) {
   // Track pause timer (when someone is attempting to go out fora da vez)
   useEffect(() => {
     if (room.isPaused && room.pausedBy === userId) {
-      // Store the discard card that was picked up (it was the discardTop before pause)
-      if (prevDiscardTopRef.current) {
-        setPickedUpDiscardCard(prevDiscardTopRef.current);
-      }
       // Start timer immediately on pausing client to avoid waiting for Firestore timestamp sync
       const startMs = room.pauseStartedAt ?? Date.now();
       const pausedAtMs = room.pausedAt ? room.pausedAt.toMillis() : startMs;
@@ -184,9 +180,9 @@ export function Table({ room }: TableProps) {
       const progress = Math.min(1, Math.max(0, 1 - remaining / 40000));
       setPauseProgressByPlayer({ [room.pausedBy!]: progress });
       
-      // If timer expired and it's the player who paused, return the card
-      if (remaining <= 0 && room.pausedBy === userId && pickedUpDiscardCard) {
-        returnDiscardAndUnpause(room.id, pickedUpDiscardCard).catch((error) => {
+      // If timer expired and it's the player who paused, return card (if any) and unpause
+      if (remaining <= 0 && room.pausedBy === userId) {
+        returnDiscardAndUnpause(room.id).catch((error) => {
           console.error('Error returning discard card:', error);
         });
         pauseStartRef.current = null;
@@ -289,22 +285,36 @@ export function Table({ room }: TableProps) {
   };
 
   const handleDrawDiscard = async () => {
-    // Allow drawing during pause (but discard card is already picked up automatically)
     const isPausedByMe = room.isPaused && room.pausedBy === userId;
-    if (!isMyTurn && !isPausedByMe) {
+    // Se o jogo está pausado e não fui eu que pausei, não pode comprar
+    if (room.isPaused && !isPausedByMe) {
       return;
     }
-    
+
+    // Durante pausa: permitir comprar do descarte (é obrigatório para jogar), respeitando ação em andamento
+    if (isPausedByMe) {
+      if (actionInProgress) return;
+      try {
+        setActionInProgress(true);
+        await drawFromDiscard(room.id);
+        setHasDrawn(true);
+        // guardamos referência local para possível devolução se timer expirar
+        if (room.discardTop) {
+          setPickedUpDiscardCard(room.discardTop);
+        }
+      } catch (error: any) {
+        await showAlert(error.message || 'Erro ao comprar do descarte' );
+      } finally {
+        setActionInProgress(false);
+      }
+      return;
+    }
+
+    // Fluxo normal (não pausado)
     if (isMyTurn && (hasDrawn || actionInProgress)) {
       if (hasDrawn) {
         await showAlert('Você já comprou uma carta neste turno. Descartar uma carta primeiro.' );
       }
-      return;
-    }
-    
-    // During pause, discard card is already picked up, so just show message
-    if (isPausedByMe) {
-      await showAlert('A carta do descarte já foi pega automaticamente quando você pausou o jogo.' );
       return;
     }
 
