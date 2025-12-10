@@ -890,6 +890,13 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
       }
     }
 
+    // PREPARE all player docs BEFORE any writes (required by Firestore transactions)
+    const allPlayerRefs: Array<{ ref: any; id: string }> = [];
+    for (const playerId of roomData.playerOrder) {
+      allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
+    }
+    const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+
     transaction.update(handRef, {
       cards: newHand,
     });
@@ -906,13 +913,6 @@ export const layDownMelds = async (roomId: string, melds: Meld[]): Promise<void>
 
     // If player has no cards left after laying down melds, they go out (bater)
     if (newHand.length === 0) {
-      // Read all player documents to find eligible winner
-      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
-      for (const playerId of roomData.playerOrder) {
-        allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
-      }
-      const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
-      
       // Find eligible winner (player with < 100 points)
       const eligibleWinner = findEligibleWinner(
         userId,
