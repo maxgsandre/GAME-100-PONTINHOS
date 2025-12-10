@@ -131,12 +131,18 @@ export function RoundEnd({ room }: RoundEndProps) {
         const currentRound = roomData.round || 0;
         const newRound = currentRound + 1;
 
+        // Definir quem começa: vencedor anterior, se existir na ordem
+        const winnerIndex = roomData.winnerId
+          ? roomData.playerOrder.indexOf(roomData.winnerId)
+          : -1;
+        const startingTurnIndex = winnerIndex >= 0 ? winnerIndex : 0;
+
         // Update room to start new round
         // Use deleteField() to remove winnerId and pausedBy instead of setting to null
         transaction.update(roomRef, {
           status: 'playing',
           round: newRound,
-          turnIndex: 0,
+          turnIndex: startingTurnIndex,
           discardTop: firstDiscard,
           lastAction: 'Jogo iniciado',
           firstPassComplete: false,

@@ -295,6 +295,14 @@ export const startGame = async (roomId: string): Promise<void> => {
     const currentRound = roomData.round || 0;
     const newRound = currentRound + 1;
 
+    // Determine first player for the round:
+    // - If coming from roundEnd and we have a winnerId in playerOrder, start with that winner
+    // - Otherwise default to index 0 (owner already in playerOrder)
+    const winnerIndex = roomData.winnerId
+      ? roomData.playerOrder.indexOf(roomData.winnerId)
+      : -1;
+    const startingTurnIndex = winnerIndex >= 0 ? winnerIndex : 0;
+
     // NOW ALL WRITES - After all reads are complete
     // Update room
     // Note: We don't set pausedBy here because it shouldn't exist at game start
@@ -302,7 +310,7 @@ export const startGame = async (roomId: string): Promise<void> => {
     transaction.update(roomRef, {
       status: 'playing',
       round: newRound,
-      turnIndex: 0,
+      turnIndex: startingTurnIndex,
       discardTop: firstDiscard,
       discardedBy: deleteField(), // No one discarded yet, it's the initial card
       lastAction: 'Jogo iniciado',
