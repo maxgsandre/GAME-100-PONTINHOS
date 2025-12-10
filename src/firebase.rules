@@ -174,8 +174,8 @@ service cloud.firestore {
           request.resource.data.ownerUid == resource.data.ownerUid &&
           request.resource.data.cards.size() == resource.data.cards.size() + 1;
         
-        // Still block deletes
-        allow delete: if false;
+        // Allow owner to clear melds when preparando nova rodada (ex.: em roundEnd)
+        allow delete: if isAuthenticated() && isRoomOwner(roomId);
       }
       
       // Messages subcollection (chat)
