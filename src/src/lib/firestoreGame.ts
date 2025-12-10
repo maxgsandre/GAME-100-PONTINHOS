@@ -586,11 +586,15 @@ export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card)
       throw new Error('Carta do descarte não está na sua mão');
     }
 
-    const newHand = handData.cards.filter(c => c !== discardCard);
+    // Remove apenas uma ocorrência da carta (há cartas duplicadas no baralho)
+    const handCopy = [...handData.cards];
+    const idx = handCopy.indexOf(discardCard);
+    if (idx === -1) {
+      throw new Error('Carta do descarte não está na sua mão');
+    }
+    handCopy.splice(idx, 1);
 
-    transaction.update(handRef, {
-      cards: newHand,
-    });
+    transaction.update(handRef, { cards: handCopy });
 
     // Return card to discard
     transaction.update(deckRef, {
@@ -653,8 +657,13 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
       throw new Error('Você não tem essa carta');
     }
 
-    // Remove card from hand
-    const newHand = handData.cards.filter(c => c !== card);
+    // Remove apenas uma ocorrência da carta (há cartas duplicadas)
+    const handCopy = [...handData.cards];
+    const idx = handCopy.indexOf(card);
+    if (idx === -1) {
+      throw new Error('Você não tem essa carta');
+    }
+    handCopy.splice(idx, 1);
 
     // Read all player documents for updates
     const allPlayerRefs: Array<{ ref: any; id: string }> = [];
@@ -666,9 +675,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
     // Find current player index in playerOrder
     const currentPlayerIndex = roomData.playerOrder.indexOf(userId);
 
-    transaction.update(handRef, {
-      cards: newHand,
-    });
+    transaction.update(handRef, { cards: handCopy });
 
     // Push discarded card to the discard pile
     transaction.update(deckRef, {
