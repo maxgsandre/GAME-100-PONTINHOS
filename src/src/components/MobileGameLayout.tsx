@@ -255,11 +255,13 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
       // - Nunca habilita quando é sua vez (bate descartando)
       // - Desabilita se o jogo já está pausado por outro jogador
       // - Desabilita se o jogador da vez já comprou a carta (tem que esperar o descarte dele)
+      // - Desabilita se você foi quem descartou por último (até alguém descartar depois)
       disabled:
         isMyTurn ||
         isPaused ||
         isPausedByOthers ||
-        !!currentTurnHasDrawn,
+        !!currentTurnHasDrawn ||
+        (discardedBy && discardedBy === currentUserId),
     },
   ];
 
