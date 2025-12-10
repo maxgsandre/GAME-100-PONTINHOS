@@ -52,7 +52,6 @@ export function Table({ room }: TableProps) {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
   const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null); // only when player manually buys during pause
-  const [pauseProgressByPlayer, setPauseProgressByPlayer] = useState<Record<string, number> | undefined>(undefined);
   const pauseStartRef = useRef<number | null>(null);
   const prevDiscardTopRef = useRef<Card | null>(null);
 
@@ -148,7 +147,6 @@ export function Table({ room }: TableProps) {
   useEffect(() => {
     if (!room.isPaused || !room.pausedBy) {
       setPauseRemainingMs(null);
-      setPauseProgressByPlayer(undefined);
       pauseStartRef.current = null;
       return;
     }
@@ -177,8 +175,6 @@ export function Table({ room }: TableProps) {
       const elapsed = Math.max(0, Date.now() - startMs);
       const remaining = Math.max(0, 40000 - elapsed);
       setPauseRemainingMs(remaining);
-      const progress = Math.min(1, Math.max(0, 1 - remaining / 40000));
-      setPauseProgressByPlayer({ [room.pausedBy!]: progress });
       
       // If timer expired and it's the player who paused, return card (if any) and unpause
       if (remaining <= 0 && room.pausedBy === userId) {
@@ -809,11 +805,11 @@ export function Table({ room }: TableProps) {
         isPaused={room.isPaused}
         pausedBy={room.pausedBy}
         currentTurnHasDrawn={currentTurnHasDrawn}
-        currentUserId={userId}
+        currentUserId={userId ?? undefined}
         rules={room.rules}
         roomId={room.id}
-      pauseProgressByPlayer={undefined} // deixamos o anel do avatar desligado; usamos o contador no header
-      pauseRemainingMs={pauseRemainingMs}
+        pauseProgressByPlayer={undefined} // deixamos o anel do avatar desligado; usamos o contador no header
+        pauseRemainingMs={pauseRemainingMs}
         onBuyStock={handleDrawStock}
         onBuyDiscard={handleDrawDiscard}
         onCardSelect={handleCardSelect}
