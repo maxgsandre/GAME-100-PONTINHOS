@@ -35,6 +35,7 @@ export interface Room {
   pausedBy?: string; // User ID of player who paused the game
   pausedAt?: Timestamp; // When the game was paused (for timer calculation)
   pauseStartedAt?: number; // Client-side millis when pause started (primary for timer)
+  pausePickedCard?: Card; // Card picked from discard during pause (to revert if timeout)
   discardedBy?: string; // User ID of player who discarded the top card
 }
 
@@ -472,11 +473,18 @@ export const drawFromDiscard = async (roomId: string): Promise<void> => {
       });
     }
 
-    transaction.update(roomRef, {
+    const roomUpdate: any = {
       discardTop: newDiscardTop,
       discardedBy: newDiscardTop ? roomData.discardedBy : deleteField(), // Keep previous discardedBy if there's still a card
       lastAction: 'Comprou do descarte',
-    });
+    };
+
+    // Se está pausado e fui eu que pausei, guarda a carta para eventual devolução
+    if (roomData.isPaused && roomData.pausedBy === userId) {
+      roomUpdate.pausePickedCard = card;
+    }
+
+    transaction.update(roomRef, roomUpdate);
   });
 };
 
@@ -499,7 +507,7 @@ export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
     // Check if game is already paused
     if (roomData.isPaused) {
       if (roomData.pausedBy === userId) {
-        // Already paused by this player, just return (card already picked up)
+        // Already paused by this player
         return;
       } else {
         throw new Error('Jogo já está pausado por outro jogador');
@@ -507,58 +515,23 @@ export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
     }
 
     if (!roomData.discardTop) {
-      throw new Error('Não há carta no descarte para pegar');
+      throw new Error('Não há carta no descarte para tentar pegar');
     }
 
-    // Get deck state
-    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
-    const deckDoc = await transaction.get(deckRef);
-    const deckData = deckDoc.data() as DeckState;
-
-    // Fix inconsistent state: if discardTop exists but discard array is empty, sync them
-    let discardArray = deckData.discard;
-    if (discardArray.length === 0 && roomData.discardTop) {
-      // State is inconsistent - add discardTop to array to fix it
-      discardArray = [roomData.discardTop];
-    }
-
-    if (discardArray.length === 0) {
-      throw new Error('Descarte vazio');
-    }
-
-    // Take top card from discard
-    const card = discardArray[discardArray.length - 1];
-    const newDiscard = discardArray.slice(0, -1);
-    const newDiscardTop = newDiscard.length > 0 ? newDiscard[newDiscard.length - 1] : null;
-
-    // Add to player's hand
-    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
-    const handDoc = await transaction.get(handRef);
-    const handData = handDoc.data() as Hand;
-
-    transaction.update(handRef, {
-      cards: [...handData.cards, card],
-    });
-
-    transaction.update(deckRef, {
-      discard: newDiscard,
-    });
-
-    // Pause the game
+    // Pause the game WITHOUT auto-picking the discard.
     transaction.update(roomRef, {
       isPaused: true,
       pausedBy: userId,
       pausedAt: serverTimestamp() as Timestamp,
       pauseStartedAt: Date.now(),
-      discardTop: newDiscardTop,
-      discardedBy: newDiscardTop ? roomData.discardedBy : deleteField(), // Keep previous discardedBy if there's still a card
+      pausePickedCard: deleteField(),
       lastAction: 'Pausou o jogo para tentar bater',
     });
   });
 };
 
-// Return discard card and unpause (when timer expires or player fails)
-export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card): Promise<void> => {
+// Return discard card (if picked) and unpause (when timer expires or player fails)
+export const returnDiscardAndUnpause = async (roomId: string): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
 
@@ -572,45 +545,53 @@ export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card)
       throw new Error('Jogo não está pausado por você');
     }
 
-    // Get deck state
-    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
-    const deckDoc = await transaction.get(deckRef);
-    const deckData = deckDoc.data() as DeckState;
+    // If no card was picked during pause, just unpause
+    const pickedCard = roomData.pausePickedCard;
 
-    // Remove card from player's hand
-    const handRef = doc(db, 'rooms', roomId, 'hands', userId);
-    const handDoc = await transaction.get(handRef);
-    const handData = handDoc.data() as Hand;
+    if (pickedCard) {
+      // Get deck state
+      const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+      const deckDoc = await transaction.get(deckRef);
+      const deckData = deckDoc.data() as DeckState;
 
-    if (!handData.cards.includes(discardCard)) {
-      throw new Error('Carta do descarte não está na sua mão');
+      // Remove one occurrence from hand
+      const handRef = doc(db, 'rooms', roomId, 'hands', userId);
+      const handDoc = await transaction.get(handRef);
+      const handData = handDoc.data() as Hand;
+      const handCopy = [...handData.cards];
+      const idx = handCopy.indexOf(pickedCard);
+      if (idx !== -1) {
+        handCopy.splice(idx, 1);
+        transaction.update(handRef, { cards: handCopy });
+      }
+
+      // Return card to discard
+      transaction.update(deckRef, {
+        discard: [...deckData.discard, pickedCard],
+      });
+
+      // Unpause game
+      transaction.update(roomRef, {
+        isPaused: false,
+        pausedBy: deleteField(),
+        pausedAt: deleteField(),
+        pauseStartedAt: deleteField(),
+        pausePickedCard: deleteField(),
+        discardTop: pickedCard,
+        discardedBy: userId, // Player who returned the card is now the one who discarded it
+        lastAction: 'Tempo esgotado - carta retornada',
+      });
+    } else {
+      // Unpause without card movement
+      transaction.update(roomRef, {
+        isPaused: false,
+        pausedBy: deleteField(),
+        pausedAt: deleteField(),
+        pauseStartedAt: deleteField(),
+        pausePickedCard: deleteField(),
+        lastAction: 'Tempo esgotado',
+      });
     }
-
-    // Remove apenas uma ocorrência da carta (há cartas duplicadas no baralho)
-    const handCopy = [...handData.cards];
-    const idx = handCopy.indexOf(discardCard);
-    if (idx === -1) {
-      throw new Error('Carta do descarte não está na sua mão');
-    }
-    handCopy.splice(idx, 1);
-
-    transaction.update(handRef, { cards: handCopy });
-
-    // Return card to discard
-    transaction.update(deckRef, {
-      discard: [...deckData.discard, discardCard],
-    });
-
-    // Unpause game
-    transaction.update(roomRef, {
-      isPaused: false,
-      pausedBy: deleteField(),
-      pausedAt: deleteField(),
-      pauseStartedAt: deleteField(),
-      discardTop: discardCard,
-      discardedBy: userId, // Player who returned the card is now the one who discarded it
-      lastAction: 'Tempo esgotado - carta retornada',
-    });
   });
 };
 
@@ -683,7 +664,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
     });
 
     // If player has no cards left after discarding, they go out (bater)
-    if (newHand.length === 0) {
+    if (handCopy.length === 0) {
       // Reset hasDrawnThisTurn for current player (they finished their turn by going out)
       if (currentPlayerIndex >= 0 && currentPlayerIndex < allPlayerRefs.length) {
         transaction.update(allPlayerRefs[currentPlayerIndex].ref, {
@@ -726,7 +707,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
       if (isPausedByMe) {
         // Check if player can go out with current hand
         const { canGoOutWithScenarios } = await import('./rules');
-        const scenarioCheck = canGoOutWithScenarios(newHand, roomData.discardTop);
+        const scenarioCheck = canGoOutWithScenarios(handCopy, roomData.discardTop);
         
         if (scenarioCheck.canGoOut && scenarioCheck.scenario) {
           // Player can go out! Use the scenario
@@ -735,7 +716,7 @@ export const discardCard = async (roomId: string, card: Card, _cardIndex?: numbe
           
           // Verify all cards are used
           const allCards = discardCardForGoOut ? [...allMeldCards, discardCardForGoOut] : allMeldCards;
-          if (allCards.length !== newHand.length) {
+          if (allCards.length !== handCopy.length) {
             // Not all cards used, just discard normally
             const nextTurnIndex = (roomData.turnIndex + 1) % roomData.playerOrder.length;
             const firstPassComplete = roomData.firstPassComplete || nextTurnIndex === 0;
