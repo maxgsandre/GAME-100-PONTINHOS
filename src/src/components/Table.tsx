@@ -52,6 +52,7 @@ export function Table({ room }: TableProps) {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
   const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null);
+  const [pauseProgressByPlayer, setPauseProgressByPlayer] = useState<Record<string, number> | undefined>(undefined);
   const pauseStartRef = useRef<number | null>(null);
   const prevDiscardTopRef = useRef<Card | null>(null);
 
@@ -135,38 +136,53 @@ export function Table({ room }: TableProps) {
         setPickedUpDiscardCard(prevDiscardTopRef.current);
       }
       // Start timer immediately on pausing client to avoid waiting for Firestore timestamp sync
-      const startMs = Date.now();
-      pauseStartRef.current = startMs;
-      const deadline = (room.pausedAt ? room.pausedAt.toMillis() : startMs) + 30000;
+      const startMs = room.pauseStartedAt ?? Date.now();
+      const pausedAtMs = room.pausedAt ? room.pausedAt.toMillis() : startMs;
+      const startAligned = Math.min(pausedAtMs, startMs); // evita start no futuro (clock skew)
+      pauseStartRef.current = startAligned;
+      const deadline = startAligned + 40000;
       setPauseRemainingMs(Math.max(0, deadline - Date.now()));
     } else {
       setPickedUpDiscardCard(null);
       pauseStartRef.current = null;
     }
-  }, [room.isPaused, room.pausedBy, userId]);
+  }, [room.isPaused, room.pausedBy, room.pauseStartedAt, room.pausedAt, userId]);
 
   // Track pause timer for ALL players (so everyone can see the progress)
   useEffect(() => {
     if (!room.isPaused || !room.pausedBy) {
       setPauseRemainingMs(null);
+      setPauseProgressByPlayer(undefined);
       pauseStartRef.current = null;
       return;
     }
 
-    // Ensure we have a local start time even for espectadores
-    if (!pauseStartRef.current) {
-      pauseStartRef.current = room.pausedAt ? room.pausedAt.toMillis() : Date.now();
+    // Ensure we align local start time with pausedAt (shared fonte de verdade)
+    if (room.pauseStartedAt) {
+      pauseStartRef.current = room.pauseStartedAt;
+    } else if (room.pausedAt) {
+      pauseStartRef.current = room.pausedAt.toMillis();
+    } else if (!pauseStartRef.current) {
+      pauseStartRef.current = Date.now();
     }
 
     // Calculate remaining time based on pausedAt timestamp (fallback to now)
     const updateRemaining = () => {
+      const startMsRaw =
+        room.pauseStartedAt ??
+        (room.pausedAt ? room.pausedAt.toMillis() : undefined) ??
+        pauseStartRef.current ??
+        Date.now();
       if (!pauseStartRef.current) {
-        pauseStartRef.current = room.pausedAt ? room.pausedAt.toMillis() : Date.now();
+        const aligned = Math.min(startMsRaw, Date.now());
+        pauseStartRef.current = aligned;
       }
-      const startMs = pauseStartRef.current || Date.now();
-      const elapsed = Date.now() - startMs;
-      const remaining = Math.max(0, 30000 - elapsed);
+      const startMs = pauseStartRef.current!;
+      const elapsed = Math.max(0, Date.now() - startMs);
+      const remaining = Math.max(0, 40000 - elapsed);
       setPauseRemainingMs(remaining);
+      const progress = Math.min(1, Math.max(0, 1 - remaining / 40000));
+      setPauseProgressByPlayer({ [room.pausedBy!]: progress });
       
       // If timer expired and it's the player who paused, return the card
       if (remaining <= 0 && room.pausedBy === userId && pickedUpDiscardCard) {
@@ -243,6 +259,11 @@ export function Table({ room }: TableProps) {
 
   const handleDrawStock = async () => {
     const isPausedByMe = room.isPaused && room.pausedBy === userId;
+    // Se o jogo está pausado por qualquer jogador, bloquear compra do monte
+    if (room.isPaused) {
+      await showAlert('Compra do monte desativada enquanto alguém está tentando bater.');
+      return;
+    }
     // During pause, monte is disabled
     if (isPausedByMe) {
       await showAlert('Durante a tentativa de bater, você não pode comprar do monte. Use apenas a carta do descarte.' );
@@ -633,17 +654,7 @@ export function Table({ room }: TableProps) {
   const currentTurnPlayer = players.find(p => p.id === currentTurnPlayerId);
   const currentTurnHasDrawn = currentTurnPlayer?.hasDrawnThisTurn ?? false;
 
-  // Mapa de progresso de pausa por jogador (0..1) - visível para TODOS os jogadores
-  const pauseProgressByPlayer = (() => {
-    if (!room.isPaused || !room.pausedBy) return undefined;
-    const total = 30000;
-    const startMs = room.pausedAt ? room.pausedAt.toMillis() : pauseStartRef.current;
-    const baseStart = startMs ?? Date.now();
-    const remainingByTimestamp = Math.max(0, total - (Date.now() - baseStart));
-    const remaining = pauseRemainingMs ?? remainingByTimestamp;
-    const progress = Math.min(1, Math.max(0, 1 - remaining / total));
-    return { [room.pausedBy]: progress };
-  })();
+  // pauseProgressByPlayer é mantido em estado (atualizado no useEffect do timer)
 
   const handleCardSelect = (card: Card, index?: number) => {
     // Allow card selection during pause (when player is trying to go out)
@@ -791,7 +802,8 @@ export function Table({ room }: TableProps) {
         currentUserId={userId}
         rules={room.rules}
         roomId={room.id}
-        pauseProgressByPlayer={pauseProgressByPlayer}
+      pauseProgressByPlayer={undefined} // deixamos o anel do avatar desligado; usamos o contador no header
+      pauseRemainingMs={pauseRemainingMs}
         onBuyStock={handleDrawStock}
         onBuyDiscard={handleDrawDiscard}
         onCardSelect={handleCardSelect}

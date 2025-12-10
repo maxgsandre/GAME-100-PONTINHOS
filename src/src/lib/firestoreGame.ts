@@ -34,6 +34,7 @@ export interface Room {
   isPaused?: boolean; // True when someone is attempting to go out out of turn
   pausedBy?: string; // User ID of player who paused the game
   pausedAt?: Timestamp; // When the game was paused (for timer calculation)
+  pauseStartedAt?: number; // Client-side millis when pause started (primary for timer)
   discardedBy?: string; // User ID of player who discarded the top card
 }
 
@@ -548,6 +549,7 @@ export const pauseAndPickupDiscard = async (roomId: string): Promise<void> => {
       isPaused: true,
       pausedBy: userId,
       pausedAt: serverTimestamp() as Timestamp,
+      pauseStartedAt: Date.now(),
       discardTop: newDiscardTop,
       discardedBy: newDiscardTop ? roomData.discardedBy : deleteField(), // Keep previous discardedBy if there's still a card
       lastAction: 'Pausou o jogo para tentar bater',
@@ -600,6 +602,7 @@ export const returnDiscardAndUnpause = async (roomId: string, discardCard: Card)
       isPaused: false,
       pausedBy: deleteField(),
       pausedAt: deleteField(),
+      pauseStartedAt: deleteField(),
       discardTop: discardCard,
       discardedBy: userId, // Player who returned the card is now the one who discarded it
       lastAction: 'Tempo esgotado - carta retornada',

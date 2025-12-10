@@ -42,6 +42,7 @@ interface MobileGameLayoutProps {
   rules?: GameRules;
   roomId: string;
   pauseProgressByPlayer?: Record<string, number>;
+  pauseRemainingMs?: number | null;
   onBuyStock: () => void;
   onBuyDiscard: () => void;
   onCardSelect: (card: Card, index?: number) => void;
@@ -206,6 +207,7 @@ export function MobileGameLayout({
   onLeaveRoom,
   onAddCardToMeld,
   onCreateMeld,
+  pauseRemainingMs,
 }: MobileGameLayoutProps) {
   const { alert } = useDialog();
   const [chatOpen, setChatOpen] = useState(false);
@@ -255,6 +257,7 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
       // - Desabilita se o jogador da vez já comprou a carta (tem que esperar o descarte dele)
       disabled:
         isMyTurn ||
+        isPaused ||
         isPausedByOthers ||
         !!currentTurnHasDrawn,
     },
@@ -299,6 +302,13 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
                 <p className="text-[10px] md:text-xs lg:text-sm text-emerald-300">Última ação</p>
                 <p className="text-xs md:text-sm lg:text-base text-white font-medium">{lastAction || 'Jogo iniciado'}</p>
               </div>
+              {/* Timer de 30s durante pausa */}
+              {isPaused && typeof pauseRemainingMs === 'number' && (
+                <div className="flex items-center gap-1 bg-red-600 text-white text-xs md:text-sm lg:text-base font-bold px-2 md:px-3 py-1 rounded shadow-[0_0_12px_rgba(239,68,68,0.6)]">
+                  <span>⏱️</span>
+                  <span>{String(Math.max(0, Math.ceil(pauseRemainingMs / 1000))).padStart(2, '0')}s</span>
+                </div>
+              )}
               {onLeaveRoom && (
                 <button
                   onClick={onLeaveRoom}
