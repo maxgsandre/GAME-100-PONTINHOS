@@ -52,6 +52,7 @@ export function Table({ room }: TableProps) {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [pauseRemainingMs, setPauseRemainingMs] = useState<number | null>(null);
   const [pickedUpDiscardCard, setPickedUpDiscardCard] = useState<Card | null>(null);
+  const pauseStartRef = useRef<number | null>(null);
   const prevDiscardTopRef = useRef<Card | null>(null);
 
   // During pause, the player who paused has the turn
@@ -134,10 +135,13 @@ export function Table({ room }: TableProps) {
         setPickedUpDiscardCard(prevDiscardTopRef.current);
       }
       // Start timer immediately on pausing client to avoid waiting for Firestore timestamp sync
-      const deadline = room.pausedAt ? room.pausedAt.toMillis() + 30000 : Date.now() + 30000;
+      const startMs = Date.now();
+      pauseStartRef.current = startMs;
+      const deadline = (room.pausedAt ? room.pausedAt.toMillis() : startMs) + 30000;
       setPauseRemainingMs(Math.max(0, deadline - Date.now()));
     } else {
       setPickedUpDiscardCard(null);
+      pauseStartRef.current = null;
     }
   }, [room.isPaused, room.pausedBy, userId]);
 
@@ -145,13 +149,22 @@ export function Table({ room }: TableProps) {
   useEffect(() => {
     if (!room.isPaused || !room.pausedBy) {
       setPauseRemainingMs(null);
+      pauseStartRef.current = null;
       return;
+    }
+
+    // Ensure we have a local start time even for espectadores
+    if (!pauseStartRef.current) {
+      pauseStartRef.current = room.pausedAt ? room.pausedAt.toMillis() : Date.now();
     }
 
     // Calculate remaining time based on pausedAt timestamp (fallback to now)
     const updateRemaining = () => {
-      const pausedAtMs = room.pausedAt ? room.pausedAt.toMillis() : Date.now();
-      const elapsed = Date.now() - pausedAtMs;
+      if (!pauseStartRef.current) {
+        pauseStartRef.current = room.pausedAt ? room.pausedAt.toMillis() : Date.now();
+      }
+      const startMs = pauseStartRef.current || Date.now();
+      const elapsed = Date.now() - startMs;
       const remaining = Math.max(0, 30000 - elapsed);
       setPauseRemainingMs(remaining);
       
@@ -160,6 +173,7 @@ export function Table({ room }: TableProps) {
         returnDiscardAndUnpause(room.id, pickedUpDiscardCard).catch((error) => {
           console.error('Error returning discard card:', error);
         });
+        pauseStartRef.current = null;
       }
     };
 
@@ -424,6 +438,9 @@ export function Table({ room }: TableProps) {
 
       try {
         setActionInProgress(true);
+        // Start timer immediately on this client to evitar atraso de sync
+        pauseStartRef.current = Date.now();
+        setPauseRemainingMs(30000);
         // Pause game and automatically pickup discard card
         await pauseAndPickupDiscard(room.id);
         // Timer will start automatically via useEffect
@@ -620,7 +637,10 @@ export function Table({ room }: TableProps) {
   const pauseProgressByPlayer = (() => {
     if (!room.isPaused || !room.pausedBy) return undefined;
     const total = 30000;
-    const remaining = pauseRemainingMs ?? 30000;
+    const startMs = room.pausedAt ? room.pausedAt.toMillis() : pauseStartRef.current;
+    const baseStart = startMs ?? Date.now();
+    const remainingByTimestamp = Math.max(0, total - (Date.now() - baseStart));
+    const remaining = pauseRemainingMs ?? remainingByTimestamp;
     const progress = Math.min(1, Math.max(0, 1 - remaining / total));
     return { [room.pausedBy]: progress };
   })();
