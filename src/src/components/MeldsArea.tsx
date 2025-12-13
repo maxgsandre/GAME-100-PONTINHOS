@@ -20,6 +20,12 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   const areaRef = useRef<HTMLDivElement>(null);
 
   const emptyDrop = useDroppable({ id: 'meld-drop-zone' });
+  // Ajuste dinâmico:
+  // - Quando a zona de arraste aparece (isMyTurn), desce um pouco para não encostar em "Descartou..."
+  // - Quando NÃO aparece, sobe para ocupar o espaço vazio
+  const areaTopClass = isMyTurn
+    ? 'top-[320px] md:top-[380px] lg:top-[440px]'
+    : 'top-[290px] md:top-[350px] lg:top-[410px]';
 
   const getPlayer = (uid: string) => {
     return players.find(p => p.id === uid);
@@ -120,11 +126,11 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   return (
     <div
       ref={areaRef}
-      className="absolute top-[340px] md:top-[420px] lg:top-[500px] left-0 right-0 bottom-[180px] md:bottom-[220px] lg:bottom-[260px] flex flex-col z-[30] pointer-events-none"
+      className={`absolute ${areaTopClass} left-0 right-0 bottom-[180px] md:bottom-[220px] lg:bottom-[260px] flex flex-col z-[30] pointer-events-none`}
     >
       {/* Zona de drop vazia para criar novas combinações - FIXA NO TOPO, fora do scroll */}
       {isMyTurn && (
-        <div className="flex-shrink-0 px-2 md:px-4 lg:px-6 mb-2 pointer-events-auto flex justify-center">
+        <div className="flex-shrink-0 px-2 md:px-4 lg:px-6 mb-1 pointer-events-auto flex justify-center">
           <div
             ref={emptyDrop.setNodeRef}
             onDragOver={handleEmptyDragOver}
