@@ -2,6 +2,7 @@
 import { Card, parseCard, SUIT_SYMBOLS, SUIT_COLORS, getRankValue } from '../lib/deck';
 import { useState, useRef } from 'react';
 import { useDialog } from '../contexts/DialogContext';
+import { useDroppable } from '@dnd-kit/core';
 
 interface MeldsAreaProps {
   melds: MeldDoc[];
@@ -17,6 +18,8 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   const [dragOverMeldId, setDragOverMeldId] = useState<string | null>(null);
   const [dragOverEmpty, setDragOverEmpty] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
+
+  const emptyDrop = useDroppable({ id: 'meld-drop-zone' });
 
   const getPlayer = (uid: string) => {
     return players.find(p => p.id === uid);
@@ -123,6 +126,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
       {isMyTurn && (
         <div className="flex-shrink-0 mx-2 md:mx-4 lg:mx-6 mb-2 md:mb-3 lg:mb-4 pointer-events-auto">
           <div
+            ref={emptyDrop.setNodeRef}
             onDragOver={handleEmptyDragOver}
             onDragLeave={handleEmptyDragLeave}
             onDrop={handleEmptyDrop}
@@ -130,7 +134,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
             className={`
               w-full min-h-[80px] md:min-h-[100px] lg:min-h-[120px] rounded-lg md:rounded-xl border-2 border-dashed
               flex items-center justify-center cursor-pointer relative z-[31]
-              ${dragOverEmpty 
+              ${(dragOverEmpty || emptyDrop.isOver)
                 ? 'bg-emerald-500/40 border-emerald-400' 
                 : 'bg-emerald-900/30 border-emerald-700/70 hover:bg-emerald-900/40'
               }

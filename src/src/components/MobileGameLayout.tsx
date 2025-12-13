@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Chat } from './Chat';
 import { MeldsArea } from './MeldsArea';
 import { useDialog } from '../contexts/DialogContext';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 
 type Player = { 
   id: string;
@@ -97,6 +98,7 @@ function OpponentHand({ count, position }: { count: number; position: 'top' | 'b
 
 // Component for player avatar with score
 function PlayerAvatar({ player, position, pauseProgress }: { player: Player; position: 'top' | 'bottom' | 'left' | 'right'; pauseProgress?: number }) {
+  const [imgError, setImgError] = useState(false);
   const isVertical = position === 'left' || position === 'right';
   const isTurn = player.isTurn;
   const isBlocked = player.isBlocked || false;
@@ -114,10 +116,12 @@ function PlayerAvatar({ player, position, pauseProgress }: { player: Player; pos
               }}
             />
           )}
-          {player.photoURL ? (
+          {player.photoURL && !imgError ? (
             <img
               src={player.photoURL}
               alt={player.name}
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
               className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
             />
           ) : (
@@ -151,10 +155,12 @@ function PlayerAvatar({ player, position, pauseProgress }: { player: Player; pos
               }}
             />
           )}
-          {player.photoURL ? (
+          {player.photoURL && !imgError ? (
             <img
               src={player.photoURL}
               alt={player.name}
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
               className={`w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full object-cover border-2 ${isTurn ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]' : isBlocked ? 'border-red-400' : 'border-gray-400'}`}
             />
           ) : (
@@ -212,6 +218,7 @@ export function MobileGameLayout({
   const { alert } = useDialog();
   const [chatOpen, setChatOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [activeDragCard, setActiveDragCard] = useState<Card | null>(null);
 
   // Separate players by position
 const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
@@ -225,6 +232,46 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   const isMyTurn = canPlay;
   // Game is paused by someone else (not me)
   const isPausedByOthers = isPaused && pausedBy && pausedBy !== currentUserId;
+  const touch = typeof window !== 'undefined' && (('ontouchstart' in window) || ((navigator as any)?.maxTouchPoints ?? 0) > 0);
+  const touchDnDEnabled = touch && canPlay;
+
+  const sensors = useSensors(
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDndStart = (e: DragStartEvent) => {
+    const data = e.active.data.current as any;
+    const card = data?.card as Card | undefined;
+    setActiveDragCard(card ?? null);
+  };
+
+  const handleDndEnd = async (e: DragEndEvent) => {
+    const overId = e.over?.id?.toString();
+    const activeData = e.active.data.current as any;
+    const activeCard = activeData?.card as Card | undefined;
+    setActiveDragCard(null);
+
+    if (!overId) return;
+
+    // Drop zone para criar combinação
+    if (overId === 'meld-drop-zone') {
+      if (!onCreateMeld || !canPlay) return;
+      if (selectedCards.length < 3) {
+        await alert({ message: 'Selecione pelo menos 3 cartas para criar uma combinação' });
+        return;
+      }
+      onCreateMeld(selectedCards);
+      return;
+    }
+
+    // Drop em um meld existente para adicionar carta
+    if (overId.startsWith('meld-')) {
+      if (!onAddCardToMeld || !canPlay || !activeCard) return;
+      const meldId = overId.slice('meld-'.length);
+      onAddCardToMeld(meldId, activeCard);
+    }
+  };
 
   // Determine why discard button is disabled
   // Player MUST draw first before being able to discard
@@ -239,7 +286,16 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
           ? 'Selecione apenas uma carta'
           : '';
 
-  const actions = [
+  type ActionBtn = {
+    id: 'discard' | 'knock';
+    label: string;
+    type?: 'primary';
+    danger?: boolean;
+    disabled: boolean;
+    title?: string;
+  };
+
+  const actions: ActionBtn[] = [
     {
       id: 'discard',
       label: `Descartar${selectedCards.length > 0 ? ` (${selectedCards.length}/1)` : ' (0/1)'}`,
@@ -256,12 +312,13 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
       // - Desabilita se o jogo já está pausado por outro jogador
       // - Desabilita se o jogador da vez já comprou a carta (tem que esperar o descarte dele)
       // - Desabilita se você foi quem descartou por último (até alguém descartar depois)
-      disabled:
+      disabled: !!(
         isMyTurn ||
         isPaused ||
         isPausedByOthers ||
         !!currentTurnHasDrawn ||
-        (discardedBy && discardedBy === currentUserId),
+        (discardedBy && discardedBy === currentUserId)
+      ),
     },
   ];
 
@@ -274,6 +331,11 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   };
 
   return (
+    <DndContext
+      sensors={touchDnDEnabled ? sensors : undefined}
+      onDragStart={touchDnDEnabled ? handleDndStart : undefined}
+      onDragEnd={touchDnDEnabled ? handleDndEnd : undefined}
+    >
     <div className="min-h-screen bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 flex flex-col overflow-hidden relative">
       {/* Header */}
       <header className="bg-emerald-950/60 backdrop-blur border-b border-emerald-600/30 sticky top-0 z-50">
@@ -459,5 +521,11 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
         onMessageCountChange={setMessageCount}
       />
     </div>
+    <DragOverlay>
+      {activeDragCard ? (
+        <div className="relative w-16 h-24 rounded-md shadow-2xl bg-white border-2 border-yellow-400 opacity-90" />
+      ) : null}
+    </DragOverlay>
+    </DndContext>
   );
 }

@@ -1,7 +1,41 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '../lib/deck';
 import { parseCard, SUIT_SYMBOLS, SUIT_COLORS } from '../lib/deck';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+
+function isTouchDevice() {
+  if (typeof window === 'undefined') return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nav: any = navigator;
+  return ('ontouchstart' in window) || (nav?.maxTouchPoints ?? 0) > 0;
+}
+
+function DndDraggableCard({
+  id,
+  card,
+  index,
+  disabled,
+  children,
+}: {
+  id: string;
+  card: Card;
+  index: number;
+  disabled: boolean;
+  children: (opts: { isDragging: boolean; setNodeRef: (node: HTMLElement | null) => void; attributes: any; listeners: any; style: React.CSSProperties }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id,
+    disabled,
+    data: { card, index },
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    touchAction: 'none',
+  };
+  return <>{children({ isDragging, setNodeRef, attributes, listeners, style })}</>;
+}
 
 export function HandScroller({
   cards,
@@ -24,8 +58,15 @@ export function HandScroller({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const touchStartPos = useRef<{ x: number; y: number; index: number } | null>(null);
+  const touch = useMemo(() => isTouchDevice(), []);
+  const touchDragOutEnabled = touch && !!allowDragOut && selectedCards.length >= 3;
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (touch) {
+      // Em touch, usamos dnd-kit em vez do drag nativo
+      e.preventDefault();
+      return;
+    }
     if (!onReorder && !allowDragOut) {
       e.preventDefault();
       return;
@@ -94,15 +135,16 @@ export function HandScroller({
     }
   };
 
-  // Touch handlers for mobile - usando eventos globais
+  // Touch handlers para mobile - usando eventos globais
+  // Suporta reordenar (onReorder) e evita travar seleção quando allowDragOut está ativo
   useEffect(() => {
-    if (!onReorder) return;
+    // Se estiver no modo de arrastar para mesa via dnd-kit (3 cartas selecionadas), não interceptar o touch para reorder
+    if (touchDragOutEnabled) return;
+    if (!onReorder && !allowDragOut) return;
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
       if (!touchStartPos.current || draggedIndex === null) return;
       
-      e.preventDefault();
-      e.stopPropagation();
       const touch = e.touches[0];
       
       // Sempre atualizar posição do drag para a carta seguir o dedo
@@ -128,8 +170,8 @@ export function HandScroller({
 
     const handleGlobalTouchEnd = () => {
       if (!touchStartPos.current) return;
-      
-      // Se estava arrastando, tenta fazer drop
+
+      // Se estava arrastando para reordenar, aplica a troca
       if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex && onReorder) {
         const newOrder = [...cards];
         const [removed] = newOrder.splice(draggedIndex, 1);
@@ -137,6 +179,7 @@ export function HandScroller({
         onReorder(newOrder);
       }
 
+      // Limpa estado (para allowDragOut também, evitando ficar "travado")
       setDraggedIndex(null);
       setDragOverIndex(null);
       setDragPosition(null);
@@ -152,13 +195,14 @@ export function HandScroller({
       document.removeEventListener('touchend', handleGlobalTouchEnd);
       document.removeEventListener('touchcancel', handleGlobalTouchEnd);
     };
-  }, [onReorder, draggedIndex, dragOverIndex, cards]);
+  }, [onReorder, allowDragOut, draggedIndex, dragOverIndex, cards]);
 
   // Touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent, index: number) => {
+    // Se estiver no modo dnd-kit (3+ selecionadas), deixa o dnd-kit assumir
+    if (touchDragOutEnabled) return;
     if (!onReorder) return;
-    e.preventDefault();
-    e.stopPropagation();
+    // Não chamar preventDefault aqui para evitar warning de passive listener
     const touch = e.touches[0];
     touchStartPos.current = { x: touch.clientX, y: touch.clientY, index };
     // Iniciar drag imediatamente para mostrar a carta
@@ -242,6 +286,63 @@ export function HandScroller({
         const isDragging = draggedIndex === index;
         const isDragOver = dragOverIndex === index;
 
+        const cardFace = (
+          <div className="absolute inset-0 bg-white rounded-md md:rounded-lg border border-gray-300">
+            <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
+              <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+              <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex flex-col items-center">
+                <span className={`text-2xl md:text-3xl lg:text-4xl ${color}`}>{suitSymbol}</span>
+                <span className={`text-lg md:text-xl lg:text-2xl font-bold ${color}`}>{rankDisplay}</span>
+              </div>
+            </div>
+            <div className="absolute bottom-0.5 right-0.5 md:bottom-1 md:right-1 flex flex-col items-center rotate-180">
+              <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+              <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
+            </div>
+          </div>
+        );
+
+        const baseClass = `relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
+          isSelected ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-emerald-900' : ''
+        } ${!selectable ? 'opacity-50 cursor-not-allowed' : ''} ${
+          isDragging ? 'opacity-50 scale-95' : ''
+        } ${isDragOver ? 'translate-y-2 scale-105' : ''} ${
+          selectable && onReorder ? 'cursor-move' : ''
+        }`;
+
+        // Touch: usa dnd-kit (drag para a mesa) somente quando há 3+ selecionadas
+        if (touchDragOutEnabled) {
+          return (
+            <DndDraggableCard
+              key={`${card}-${index}`}
+              id={`hand-${index}`}
+              card={card}
+              index={index}
+              disabled={!selectable}
+            >
+              {({ setNodeRef, attributes, listeners, style }) => (
+                <div
+                  ref={setNodeRef}
+                  data-card-index={index}
+                  {...attributes}
+                  {...listeners}
+                  style={style}
+                  onClick={() => {
+                    if (selectable) onCardSelect(card, index);
+                  }}
+                  className={baseClass}
+                >
+                  {cardFace}
+                </div>
+              )}
+            </DndDraggableCard>
+          );
+        }
+
+        // Desktop: mantém drag nativo / reorder atual
         return (
           <div
             key={`${card}-${index}`}
@@ -262,30 +363,9 @@ export function HandScroller({
             style={{
               touchAction: onReorder ? 'none' : 'auto', // Prevenir gestos padrão do touch quando pode reordenar
             }}
-            className={`relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
-              isSelected ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-emerald-900' : ''
-            } ${!selectable ? 'opacity-50 cursor-not-allowed' : ''} ${
-              isDragging ? 'opacity-50 scale-95' : ''
-            } ${isDragOver ? 'translate-y-2 scale-105' : ''} ${
-              selectable && onReorder ? 'cursor-move' : ''
-            }`}
+            className={baseClass}
           >
-            <div className="absolute inset-0 bg-white rounded-md md:rounded-lg border border-gray-300">
-              <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
-                <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
-                <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center">
-                  <span className={`text-2xl md:text-3xl lg:text-4xl ${color}`}>{suitSymbol}</span>
-                  <span className={`text-lg md:text-xl lg:text-2xl font-bold ${color}`}>{rankDisplay}</span>
-                </div>
-              </div>
-              <div className="absolute bottom-0.5 right-0.5 md:bottom-1 md:right-1 flex flex-col items-center rotate-180">
-                <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
-                <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
-              </div>
-            </div>
+            {cardFace}
           </div>
         );
       })}
