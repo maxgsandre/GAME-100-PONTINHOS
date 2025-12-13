@@ -124,7 +124,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
     >
       {/* Zona de drop vazia para criar novas combinações - FIXA NO TOPO, fora do scroll */}
       {isMyTurn && (
-        <div className="flex-shrink-0 mx-2 md:mx-4 lg:mx-6 mb-2 md:mb-3 lg:mb-4 pointer-events-auto">
+        <div className="flex-shrink-0 px-2 md:px-4 lg:px-6 mb-2 pointer-events-auto flex justify-center">
           <div
             ref={emptyDrop.setNodeRef}
             onDragOver={handleEmptyDragOver}
@@ -132,7 +132,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
             onDrop={handleEmptyDrop}
             data-testid="meld-drop-zone"
             className={`
-              w-full min-h-[80px] md:min-h-[100px] lg:min-h-[120px] rounded-lg md:rounded-xl border-2 border-dashed
+              w-full max-w-[520px] min-h-[44px] rounded-lg border-2 border-dashed
               flex items-center justify-center cursor-pointer relative z-[31]
               ${(dragOverEmpty || emptyDrop.isOver)
                 ? 'bg-emerald-500/40 border-emerald-400' 
@@ -144,9 +144,9 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
             style={{ pointerEvents: 'auto' }}
           >
             {dragOverEmpty ? (
-              <p className="text-emerald-300 text-xs md:text-sm font-semibold text-center px-2">Solte aqui para criar combinacao</p>
+              <p className="text-emerald-300 text-xs font-semibold text-center px-2">Solte aqui para criar combinacao</p>
             ) : (
-              <p className="text-emerald-400/80 text-xs md:text-sm font-medium text-center px-2">Arraste cartas selecionadas aqui para criar combinacao</p>
+              <p className="text-emerald-400/80 text-xs font-medium text-center px-2">Arraste cartas selecionadas aqui para criar combinacao</p>
             )}
           </div>
         </div>
