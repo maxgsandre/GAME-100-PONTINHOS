@@ -59,7 +59,9 @@ export function HandScroller({
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const touchStartPos = useRef<{ x: number; y: number; index: number } | null>(null);
   const touch = useMemo(() => isTouchDevice(), []);
-  const touchDragOutEnabled = touch && !!allowDragOut && selectedCards.length >= 3;
+  const selectionCount = selectedCards.length + (selectedIndices?.length ?? 0);
+  // In touch devices, enable dnd-kit when at least one card is selected (by value or index) for dropping onto melds
+  const touchDragOutEnabled = touch && !!allowDragOut && selectionCount >= 1;
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (touch) {
@@ -138,7 +140,7 @@ export function HandScroller({
   // Touch handlers para mobile - usando eventos globais
   // Suporta reordenar (onReorder) e evita travar seleção quando allowDragOut está ativo
   useEffect(() => {
-    // Se estiver no modo de arrastar para mesa via dnd-kit (3 cartas selecionadas), não interceptar o touch para reorder
+    // Se estiver no modo de arrastar para mesa via dnd-kit, não interceptar o touch para reorder
     if (touchDragOutEnabled) return;
     if (!onReorder && !allowDragOut) return;
 
@@ -195,11 +197,11 @@ export function HandScroller({
       document.removeEventListener('touchend', handleGlobalTouchEnd);
       document.removeEventListener('touchcancel', handleGlobalTouchEnd);
     };
-  }, [onReorder, allowDragOut, draggedIndex, dragOverIndex, cards]);
+  }, [onReorder, allowDragOut, draggedIndex, dragOverIndex, cards, touchDragOutEnabled]);
 
   // Touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent, index: number) => {
-    // Se estiver no modo dnd-kit (3+ selecionadas), deixa o dnd-kit assumir
+    // Se estiver no modo dnd-kit (há cartas selecionadas), deixa o dnd-kit assumir
     if (touchDragOutEnabled) return;
     if (!onReorder) return;
     // Não chamar preventDefault aqui para evitar warning de passive listener
@@ -313,7 +315,7 @@ export function HandScroller({
           selectable && onReorder ? 'cursor-move' : ''
         }`;
 
-        // Touch: usa dnd-kit (drag para a mesa) somente quando há 3+ selecionadas
+        // Touch: usa dnd-kit (drag para a mesa) somente quando há seleção
         if (touchDragOutEnabled) {
           return (
             <DndDraggableCard

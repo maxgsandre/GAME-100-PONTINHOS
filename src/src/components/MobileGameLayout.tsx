@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Chat } from './Chat';
 import { MeldsArea } from './MeldsArea';
 import { useDialog } from '../contexts/DialogContext';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, MeasuringStrategy, PointerSensor, TouchSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core';
 
 type Player = { 
   id: string;
@@ -233,8 +233,6 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   // Game is paused by someone else (not me)
   const isPausedByOthers = isPaused && pausedBy && pausedBy !== currentUserId;
   const touch = typeof window !== 'undefined' && (('ontouchstart' in window) || ((navigator as any)?.maxTouchPoints ?? 0) > 0);
-  const touchDnDEnabled = touch && canPlay;
-
   const sensors = useSensors(
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -332,9 +330,11 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
 
   return (
     <DndContext
-      sensors={touchDnDEnabled ? sensors : undefined}
-      onDragStart={touchDnDEnabled ? handleDndStart : undefined}
-      onDragEnd={touchDnDEnabled ? handleDndEnd : undefined}
+      sensors={sensors}
+      onDragStart={handleDndStart}
+      onDragEnd={handleDndEnd}
+      collisionDetection={pointerWithin}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
     <div className="min-h-screen bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 flex flex-col overflow-hidden relative">
       {/* Header */}
