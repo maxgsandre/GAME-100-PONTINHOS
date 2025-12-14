@@ -59,13 +59,28 @@ export function HandScroller({
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const touchStartPos = useRef<{ x: number; y: number; index: number } | null>(null);
   const touch = useMemo(() => isTouchDevice(), []);
+  const isCoarsePointer = useMemo(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(pointer: coarse)').matches;
+  }, []);
+  const isSmallViewport = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 768;
+  }, []);
+  const isVerySmallViewport = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 400;
+  }, []);
   const selectionCount = selectedCards.length + (selectedIndices?.length ?? 0);
   // In touch devices, enable dnd-kit when at least one card is selected (by value or index) for dropping onto melds
   const touchDragOutEnabled = touch && !!allowDragOut && selectionCount >= 1;
-  // Sobreposição: só no touch, mantém tamanho; desloca ~metade da carta quando há muitas
-  const shouldOverlap = touch && cards.length > 7;
-  // Sobrepõe cerca de metade da carta; último card fica totalmente visível.
-  const overlapPx = shouldOverlap ? 32 : 0;
+  // Sobreposição: só no touch / coarse / telas pequenas. Ajusta conforme largura.
+  const shouldOverlap = (touch || isCoarsePointer || isSmallViewport) && cards.length > 7;
+  const overlapPx = useMemo(() => {
+    if (!shouldOverlap) return 0;
+    const base = isVerySmallViewport ? 40 : 32; // até ~60% em telas muito pequenas
+    return base;
+  }, [shouldOverlap, isVerySmallViewport]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (touch) {

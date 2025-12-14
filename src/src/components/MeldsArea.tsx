@@ -146,7 +146,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
     <>
     <div
       ref={areaRef}
-      className={`absolute ${areaTopClass} left-0 right-0 bottom-[180px] md:bottom-[220px] lg:bottom-[260px] flex flex-col z-[30] pointer-events-none`}
+      className={`absolute ${areaTopClass} left-0 right-0 bottom-[80px] md:bottom-[120px] lg:bottom-[150px] flex flex-col z-[30] pointer-events-none`}
     >
       {/* Zona de drop vazia para criar novas combinações - FIXA NO TOPO, fora do scroll */}
       {isMyTurn && (
