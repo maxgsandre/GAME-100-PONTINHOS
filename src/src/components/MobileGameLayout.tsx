@@ -232,7 +232,6 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   const isMyTurn = canPlay;
   // Game is paused by someone else (not me)
   const isPausedByOthers = isPaused && pausedBy && pausedBy !== currentUserId;
-  const touch = typeof window !== 'undefined' && (('ontouchstart' in window) || ((navigator as any)?.maxTouchPoints ?? 0) > 0);
   const sensors = useSensors(
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
