@@ -48,6 +48,7 @@ export interface Player {
   isReady: boolean;
   isBlocked?: boolean; // True if player tried to go out and failed (can only go out on their turn)
   hasDrawnThisTurn?: boolean; // True if player has drawn a card in current turn
+  bustOrder?: number; // Ordem em que estourou 100+ (define colocação final)
 }
 
 export interface Hand {

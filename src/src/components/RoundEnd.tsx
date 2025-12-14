@@ -92,14 +92,39 @@ export function RoundEnd({ room }: RoundEndProps) {
           }
         }
 
+        // Calcular ordens de estouro (100+) para fixar colocação
+        const playerDataById: Record<string, any> = {};
+        playerDocs.forEach((snap) => {
+          playerDataById[snap.id] = snap.data();
+        });
+
+        const existingOrders = Object.values(playerDataById)
+          .map((p: any) => p?.bustOrder)
+          .filter((v) => typeof v === 'number') as number[];
+        const currentMaxOrder = existingOrders.length ? Math.max(...existingOrders) : 0;
+
+        const crossing = scores
+          .filter((s) => s.totalScore >= 100)
+          .filter((s) => typeof playerDataById[s.playerId]?.bustOrder !== 'number');
+
+        const sortedCrossing = [...crossing].sort((a, b) => b.totalScore - a.totalScore); // mais pontos = pior colocação
+        const newBustOrders: Record<string, number> = {};
+        sortedCrossing.forEach((s, idx) => {
+          newBustOrders[s.playerId] = currentMaxOrder + idx + 1;
+        });
+
         // Update each player's score and reset game state
         for (const score of scores) {
           const playerRef = doc(db, 'rooms', room.id, 'players', score.playerId);
-          transaction.update(playerRef, {
+          const updateData: any = {
             score: score.totalScore,
             hasDrawnThisTurn: false,
             isBlocked: false,
-          });
+          };
+          if (newBustOrders[score.playerId] !== undefined) {
+            updateData.bustOrder = newBustOrders[score.playerId];
+          }
+          transaction.update(playerRef, updateData);
         }
 
         // Generate and shuffle deck
