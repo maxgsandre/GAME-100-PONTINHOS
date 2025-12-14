@@ -4,7 +4,7 @@ import { HandScroller } from './HandScroller';
 import { MeldDoc } from '../lib/firestoreGame';
 import { GameRules } from '../lib/rules';
 import { LogOut, MessageSquare, Ban } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Chat } from './Chat';
 import { MeldsArea } from './MeldsArea';
 import { useDialog } from '../contexts/DialogContext';
@@ -219,6 +219,7 @@ export function MobileGameLayout({
   const [chatOpen, setChatOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [activeDragCard, setActiveDragCard] = useState<Card | null>(null);
+  const [knockUsedThisRound, setKnockUsedThisRound] = useState(false);
 
   // Separate players by position
 const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
@@ -309,10 +310,12 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
       // - Desabilita se o jogo já está pausado por outro jogador
       // - Desabilita se o jogador da vez já comprou a carta (tem que esperar o descarte dele)
       // - Desabilita se você foi quem descartou por último (até alguém descartar depois)
+      // - Só pode ser usado uma vez por rodada (reset no próximo round)
       disabled: !!(
         isMyTurn ||
         isPaused ||
         isPausedByOthers ||
+        knockUsedThisRound ||
         !!currentTurnHasDrawn ||
         (discardedBy && discardedBy === currentUserId)
       ),
@@ -323,9 +326,15 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
     if (id === 'discard') {
       onDiscard();
     } else if (id === 'knock') {
+      setKnockUsedThisRound(true);
       onKnock();
     }
   };
+
+  // Reseta o uso do botão Bater quando a rodada muda
+  useEffect(() => {
+    setKnockUsedThisRound(false);
+  }, [round]);
 
   return (
     <DndContext
