@@ -1,6 +1,7 @@
 ﻿import { MeldDoc } from '../lib/firestoreGame';
 import { Card, parseCard, SUIT_SYMBOLS, SUIT_COLORS, getRankValue } from '../lib/deck';
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useDialog } from '../contexts/DialogContext';
 import { useDroppable } from '@dnd-kit/core';
 
@@ -34,6 +35,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   const { alert } = useDialog();
   const [dragOverMeldId, setDragOverMeldId] = useState<string | null>(null);
   const [dragOverEmpty, setDragOverEmpty] = useState(false);
+  const [showAllMelds, setShowAllMelds] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
 
   const emptyDrop = useDroppable({ id: 'meld-drop-zone' });
@@ -141,6 +143,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
   };
 
   return (
+    <>
     <div
       ref={areaRef}
       className={`absolute ${areaTopClass} left-0 right-0 bottom-[180px] md:bottom-[220px] lg:bottom-[260px] flex flex-col z-[30] pointer-events-none`}
@@ -175,9 +178,22 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
         </div>
       )}
 
+      {/* Botão para abrir modal com todas as combinações (quando muitas) */}
+      {melds.length > 5 && (
+        <div className="flex justify-center pb-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => setShowAllMelds(true)}
+            className="px-3 py-1.5 text-xs md:text-sm rounded-md bg-emerald-800/80 text-emerald-100 border border-emerald-500 hover:bg-emerald-700 transition-colors"
+          >
+            Ver todas as combinações
+          </button>
+        </div>
+      )}
+
       {/* Container com scroll horizontal APENAS para combinações - abaixo da zona de drop */}
       {/* Se combinações forem muito grandes, permite scroll vertical também para não sobrepor os botões */}
-      <div className="flex-1 mx-2 md:mx-4 lg:mx-6 overflow-x-auto overflow-y-auto pointer-events-auto">
+      <div className="flex-1 mx-2 md:mx-4 lg:mx-6 overflow-x-auto overflow-y-auto md:overflow-y-auto max-h-[230px] md:max-h-[300px] lg:max-h-[340px] pointer-events-auto pr-1">
         <div className="flex flex-row gap-2 md:gap-3 lg:gap-3 items-start justify-start min-w-max pl-1 md:pl-2 lg:pl-2">
 
           {/* Combinações existentes - Layout em linha, cada meld em um card container */}
@@ -191,7 +207,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                 meldId={meld.id}
                 className={(isOver) => `
                   flex-shrink-0 flex flex-col items-center gap-1 px-1 py-2
-                  w-16 md:w-20 lg:w-24 min-h-[144px]
+                  w-14 h-auto md:w-18 lg:w-20 min-h-[132px]
                   ${isOver || isDragOverDesktop ? 'bg-emerald-500/20 border-2 border-emerald-400' : 'bg-transparent'}
                   transition-colors
                 `}
@@ -221,8 +237,8 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
 
                   {/* Cards - Layout vertical (coluna) estilo paciência com sobreposição */}
                   <div
-                    className="flex flex-col items-center relative w-16 md:w-20 lg:w-24"
-                    style={{ minHeight: `${meld.cards.length * 20 + 100}px` }}
+                    className="flex flex-col items-center relative w-14 md:w-18 lg:w-20"
+                    style={{ minHeight: `${meld.cards.length * 18 + 90}px` }}
                   >
                     {getDisplayCards(meld).map((card, index) => {
                       const { rank, suit } = parseCard(card);
@@ -239,7 +255,7 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
                             zIndex: index,
                           }}
                         >
-                          <div className="relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl bg-white border border-gray-300">
+                          <div className="relative w-14 h-20 md:w-18 md:h-26 lg:w-20 lg:h-30 rounded-md md:rounded-lg shadow-xl bg-white border border-gray-300">
                             {/* Top left corner */}
                             <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
                               <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
@@ -269,6 +285,87 @@ export function MeldsArea({ melds, players, isMyTurn, onAddCardToMeld, onCreateM
         </div>
       </div>
     </div>
+
+    {/* Modal com todas as combinações */}
+    {showAllMelds && typeof document !== 'undefined' && createPortal(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4">
+        <div className="bg-emerald-950/95 border border-emerald-700 rounded-xl w-full max-w-6xl max-h-[80vh] overflow-y-auto p-4 shadow-2xl">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-emerald-100 font-semibold text-lg">Combinações</h2>
+            <button
+              type="button"
+              onClick={() => setShowAllMelds(false)}
+              className="px-3 py-1.5 rounded-md text-sm bg-emerald-800 text-emerald-100 border border-emerald-600 hover:bg-emerald-700"
+            >
+              Fechar
+            </button>
+          </div>
+          <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {melds.map((meld) => {
+              const player = getPlayer(meld.ownerUid);
+              return (
+                <div
+                  key={`modal-${meld.id}`}
+                  className="flex flex-col items-center gap-2 px-2 py-2 bg-emerald-900/40 rounded-lg border border-emerald-700/60"
+                >
+                  {player && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-400">
+                        {player.photoURL ? (
+                          <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-purple-600 text-white flex items-center justify-center text-sm font-semibold">
+                            {player.name[0].toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-emerald-100 text-sm font-semibold">{player.name}</span>
+                    </div>
+                  )}
+                  <div
+                    className="relative w-full flex flex-col items-center"
+                    style={{ minHeight: `${meld.cards.length * 18 + 80}px` }}
+                  >
+                    {getDisplayCards(meld).map((card, index) => {
+                      const { rank, suit } = parseCard(card);
+                      const rankDisplay = rank === 'T' ? '10' : rank;
+                      const suitSymbol = SUIT_SYMBOLS[suit];
+                      const color = SUIT_COLORS[suit] === 'red' ? 'text-red-600' : 'text-gray-900';
+                      return (
+                        <div
+                          key={`modal-${card}-${index}`}
+                          className="absolute flex-shrink-0"
+                          style={{ top: `${index * 18}px`, zIndex: index }}
+                        >
+                          <div className="relative w-14 h-20 md:w-18 md:h-26 lg:w-20 lg:h-30 rounded-md md:rounded-lg shadow-xl bg-white border border-gray-300">
+                            <div className="absolute top-0.5 left-0.5 md:top-1 md:left-1 flex flex-col items-center">
+                              <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+                              <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="flex flex-col items-center">
+                                <span className={`text-2xl md:text-3xl lg:text-4xl ${color}`}>{suitSymbol}</span>
+                                <span className={`text-lg md:text-xl lg:text-2xl font-bold ${color}`}>{rankDisplay}</span>
+                              </div>
+                            </div>
+                            <div className="absolute bottom-0.5 right-0.5 md:bottom-1 md:right-1 flex flex-col items-center rotate-180">
+                              <span className={`text-xs md:text-sm lg:text-base font-bold leading-none ${color}`}>{rankDisplay}</span>
+                              <span className={`text-sm md:text-base lg:text-lg leading-none ${color}`}>{suitSymbol}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }
 
