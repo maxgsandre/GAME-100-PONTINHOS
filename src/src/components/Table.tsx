@@ -135,7 +135,7 @@ export function Table({ room }: TableProps) {
       const pausedAtMs = room.pausedAt ? room.pausedAt.toMillis() : startMs;
       const startAligned = Math.min(pausedAtMs, startMs); // evita start no futuro (clock skew)
       pauseStartRef.current = startAligned;
-      const deadline = startAligned + 40000;
+      const deadline = startAligned + 30000;
       setPauseRemainingMs(Math.max(0, deadline - Date.now()));
     } else {
       setPickedUpDiscardCard(null);
@@ -173,7 +173,7 @@ export function Table({ room }: TableProps) {
       }
       const startMs = pauseStartRef.current!;
       const elapsed = Math.max(0, Date.now() - startMs);
-      const remaining = Math.max(0, 40000 - elapsed);
+      const remaining = Math.max(0, 30000 - elapsed);
       setPauseRemainingMs(remaining);
       
       // If timer expired and it's the player who paused, return card (if any) and unpause
