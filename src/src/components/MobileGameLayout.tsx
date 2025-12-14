@@ -233,7 +233,7 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
   // Game is paused by someone else (not me)
   const isPausedByOthers = isPaused && pausedBy && pausedBy !== currentUserId;
   const sensors = useSensors(
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { distance: 4 } }),
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
