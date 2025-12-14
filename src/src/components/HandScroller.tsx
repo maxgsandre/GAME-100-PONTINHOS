@@ -332,7 +332,7 @@ export function HandScroller({
 
         const baseClass = `relative flex-none w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
           isSelected ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-emerald-900' : ''
-        } ${!selectable ? 'opacity-50 cursor-not-allowed' : ''} ${
+        } ${!selectable ? 'cursor-not-allowed' : ''} ${
           isDragging ? 'opacity-50 scale-95' : ''
         } ${isDragOver ? 'translate-y-2 scale-105' : ''} ${
           selectable && onReorder ? 'cursor-move' : ''
