@@ -62,6 +62,10 @@ export function HandScroller({
   const selectionCount = selectedCards.length + (selectedIndices?.length ?? 0);
   // In touch devices, enable dnd-kit when at least one card is selected (by value or index) for dropping onto melds
   const touchDragOutEnabled = touch && !!allowDragOut && selectionCount >= 1;
+  // Sobreposição: só no touch, mantém tamanho; desloca ~metade da carta quando há muitas
+  const shouldOverlap = touch && cards.length > 7;
+  // Sobrepõe cerca de metade da carta; último card fica totalmente visível.
+  const overlapPx = shouldOverlap ? 32 : 0;
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (touch) {
@@ -220,9 +224,13 @@ export function HandScroller({
   const draggedCard = draggedIndex !== null ? cards[draggedIndex] : null;
   const draggedCardData = draggedCard ? parseCard(draggedCard) : null;
 
+  const containerClass = touch
+    ? 'flex flex-nowrap gap-2 justify-center relative overflow-x-auto py-1 px-3'
+    : 'flex flex-wrap gap-2 justify-center relative';
+
   return (
     <div 
-      className="flex flex-wrap gap-2 justify-center relative"
+      className={containerClass}
       onDragOver={handleContainerDragOver}
       onDrag={handleDrag}
       style={{
@@ -307,7 +315,7 @@ export function HandScroller({
           </div>
         );
 
-        const baseClass = `relative w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
+        const baseClass = `relative flex-none w-16 h-24 md:w-20 md:h-28 lg:w-24 lg:h-36 rounded-md md:rounded-lg shadow-xl transform transition-all active:scale-95 cursor-pointer hover:-translate-y-1 ${
           isSelected ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-emerald-900' : ''
         } ${!selectable ? 'opacity-50 cursor-not-allowed' : ''} ${
           isDragging ? 'opacity-50 scale-95' : ''
@@ -331,7 +339,7 @@ export function HandScroller({
                   data-card-index={index}
                   {...attributes}
                   {...listeners}
-                  style={style}
+                  style={{ ...style, marginLeft: shouldOverlap && index > 0 ? -overlapPx : 0 }}
                   onClick={() => {
                     if (selectable) onCardSelect(card, index);
                   }}
@@ -364,6 +372,7 @@ export function HandScroller({
             }}
             style={{
               touchAction: onReorder ? 'none' : 'auto', // Prevenir gestos padrão do touch quando pode reordenar
+              marginLeft: shouldOverlap && index > 0 ? -overlapPx : 0,
             }}
             className={baseClass}
           >
