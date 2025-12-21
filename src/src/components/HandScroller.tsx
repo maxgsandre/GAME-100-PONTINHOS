@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '../lib/deck';
 import { parseCard, SUIT_SYMBOLS, SUIT_COLORS } from '../lib/deck';
@@ -57,6 +57,10 @@ export function HandScroller({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cardProbeRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [cardWidth, setCardWidth] = useState<number>(0);
   const touchStartPos = useRef<{ x: number; y: number; index: number } | null>(null);
   const touch = useMemo(() => isTouchDevice(), []);
   const isCoarsePointer = useMemo(() => {
@@ -67,20 +71,60 @@ export function HandScroller({
     if (typeof window === 'undefined') return false;
     return window.innerWidth <= 768;
   }, []);
-  const isVerySmallViewport = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth <= 400;
-  }, []);
   const selectionCount = selectedCards.length + (selectedIndices?.length ?? 0);
   // In touch devices, enable dnd-kit when at least one card is selected (by value or index) for dropping onto melds
   const touchDragOutEnabled = touch && !!allowDragOut && selectionCount >= 1;
-  // Sobreposição: só no touch / coarse / telas pequenas. Ajusta conforme largura.
-  const shouldOverlap = (touch || isCoarsePointer || isSmallViewport) && cards.length > 7;
+  // Sobreposição: principalmente no mobile/coarse/small. A quantidade é calculada pelo espaço disponível.
+  const shouldOverlap = (touch || isCoarsePointer || isSmallViewport) && cards.length > 1;
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+
+    const update = () => {
+      setContainerWidth(el.clientWidth || 0);
+    };
+
+    update();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => update());
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!cardProbeRef.current) return;
+    const w = cardProbeRef.current.getBoundingClientRect().width;
+    if (w && Number.isFinite(w)) setCardWidth(w);
+  }, [cards.length, touch, isSmallViewport, isCoarsePointer]);
+
   const overlapPx = useMemo(() => {
     if (!shouldOverlap) return 0;
-    const base = isVerySmallViewport ? 40 : 32; // até ~60% em telas muito pequenas
-    return base;
-  }, [shouldOverlap, isVerySmallViewport]);
+    if (cards.length <= 1) return 0;
+
+    // Se não mediu ainda, usa um fallback que tende a sobrepor bem no mobile.
+    const w = cardWidth || 64;
+    const gap = touch ? 8 : 8; // gap-2
+
+    // Espaço efetivo disponível (não contamos safe-area aqui; ele já entra via padding CSS).
+    const baseSidePadding = 16;
+    const available = Math.max(0, containerWidth - baseSidePadding * 2);
+
+    const totalWithoutOverlap = cards.length * w + (cards.length - 1) * gap;
+    if (available <= 0 || totalWithoutOverlap <= available) return 0;
+
+    const required = (totalWithoutOverlap - available) / (cards.length - 1);
+    // Mantém sempre uma "fatias" visível da carta (não empilha 100%).
+    const minVisible = 14;
+    const maxOverlap = Math.max(0, w - minVisible);
+
+    return Math.max(0, Math.min(required, maxOverlap));
+  }, [shouldOverlap, cards.length, cardWidth, containerWidth, touch]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (touch) {
@@ -243,22 +287,25 @@ export function HandScroller({
     ? 'flex flex-nowrap gap-2 justify-center relative overflow-x-auto py-1 px-3'
     : 'flex flex-wrap gap-2 justify-center relative';
 
+  const baseSidePadding = 16;
+  const extraSidePadding = touch && shouldOverlap ? overlapPx : 0;
+
   const containerStyle: React.CSSProperties = {
     touchAction: onReorder ? 'none' : 'auto',
-    ...(touch && shouldOverlap
+    ...(touch
       ? {
-          // Como usamos marginLeft negativo para sobrepor, precisamos de "folga" nas bordas
-          // para a primeira/última carta não ficarem cortadas.
-          paddingLeft: 12 + overlapPx,
-          paddingRight: 12 + overlapPx,
-          scrollPaddingLeft: 12 + overlapPx,
-          scrollPaddingRight: 12 + overlapPx,
+          // "Safe area" + folga pra não cortar a primeira/última carta.
+          paddingLeft: `calc(${baseSidePadding + extraSidePadding}px + env(safe-area-inset-left))`,
+          paddingRight: `calc(${baseSidePadding + extraSidePadding}px + env(safe-area-inset-right))`,
+          scrollPaddingLeft: `calc(${baseSidePadding + extraSidePadding}px + env(safe-area-inset-left))`,
+          scrollPaddingRight: `calc(${baseSidePadding + extraSidePadding}px + env(safe-area-inset-right))`,
         }
       : null),
   };
 
   return (
     <div 
+      ref={containerRef}
       className={containerClass}
       onDragOver={handleContainerDragOver}
       onDrag={handleDrag}
@@ -362,7 +409,10 @@ export function HandScroller({
             >
               {({ setNodeRef, attributes, listeners, style }) => (
                 <div
-                  ref={setNodeRef}
+                  ref={(node) => {
+                    setNodeRef(node);
+                    if (index === 0) cardProbeRef.current = node as HTMLDivElement | null;
+                  }}
                   data-card-index={index}
                   {...attributes}
                   {...listeners}
@@ -402,6 +452,7 @@ export function HandScroller({
               marginLeft: shouldOverlap && index > 0 ? -overlapPx : 0,
             }}
             className={baseClass}
+            ref={index === 0 ? cardProbeRef : undefined}
           >
             {cardFace}
           </div>
