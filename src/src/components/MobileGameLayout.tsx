@@ -455,7 +455,10 @@ const topPlayer = players.find(p => p.position === 'top' && !p.isYou);
 
         {/* Bottom Player (You) - Botões um de cada lado do avatar, leque colado embaixo */}
         {bottomPlayer && (
-          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-50 pb-1">
+          <div
+            className="absolute bottom-0 left-0 right-0 flex flex-col items-center z-50"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 4px)' }}
+          >
             {/* Action Buttons e Avatar - Botões nas laterais, avatar no centro */}
             <div className="flex items-center gap-3 md:gap-4 lg:gap-6 mb-1 md:mb-2 lg:mb-3">
               {/* Botão Descartar - Esquerda */}
