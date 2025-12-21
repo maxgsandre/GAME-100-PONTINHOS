@@ -1019,6 +1019,26 @@ export const addCardToMeld = async (roomId: string, meldId: string, card: Card):
     const newHand = [...handData.cards];
     newHand.splice(cardIndex, 1);
 
+    // If player will go out, read all player docs BEFORE any writes (Firestore rule)
+    const isGoingOut = newHand.length === 0;
+    let allPlayerRefs: Array<{ ref: any; id: string }> = [];
+    let playerDocs: any[] = [];
+    let eligibleWinner: string | null = null;
+
+    if (isGoingOut) {
+      allPlayerRefs = roomData.playerOrder.map((playerId) => ({
+        ref: doc(db, 'rooms', roomId, 'players', playerId),
+        id: playerId,
+      }));
+      playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+
+      eligibleWinner = findEligibleWinner(
+        userId,
+        playerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
+        roomData.playerOrder
+      );
+    }
+
     transaction.update(handRef, {
       cards: newHand,
     });
@@ -1028,27 +1048,7 @@ export const addCardToMeld = async (roomId: string, meldId: string, card: Card):
       cards: [...meldData.cards, card],
     });
 
-    // Update last action
-    transaction.update(roomRef, {
-      lastAction: 'Adicionou carta à combinação',
-    });
-
-    // If player has no cards left after adding to meld, they go out (bater)
-    if (newHand.length === 0) {
-      // Read all player documents to find eligible winner
-      const allPlayerRefs: Array<{ ref: any; id: string }> = [];
-      for (const playerId of roomData.playerOrder) {
-        allPlayerRefs.push({ ref: doc(db, 'rooms', roomId, 'players', playerId), id: playerId });
-      }
-      const playerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
-      
-      // Find eligible winner (player with < 100 points)
-      const eligibleWinner = findEligibleWinner(
-        userId,
-        playerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
-        roomData.playerOrder
-      );
-      
+    if (isGoingOut) {
       transaction.update(roomRef, {
         status: 'roundEnd',
         discardTop: roomData.discardTop,
@@ -1068,6 +1068,10 @@ export const addCardToMeld = async (roomId: string, meldId: string, card: Card):
           }
           transaction.update(allPlayerRefs[index].ref, updates);
         }
+      });
+    } else {
+      transaction.update(roomRef, {
+        lastAction: 'Adicionou carta à combinação',
       });
     }
   });
@@ -1370,6 +1374,28 @@ export const goOut = async (
       throw new Error('Você não tem todas essas cartas');
     }
 
+    // Prepare all reads before any writes (Firestore requirement)
+    const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
+    const deckDoc = await transaction.get(deckRef);
+    if (!deckDoc.exists()) {
+      throw new Error('Estado do baralho não encontrado');
+    }
+    const deckData = deckDoc.data() as DeckState;
+
+    const allPlayerRefs: Array<{ ref: any; id: string }> = roomData.playerOrder.map((playerId) => ({
+      ref: doc(db, 'rooms', roomId, 'players', playerId),
+      id: playerId,
+    }));
+    const allPlayerDocs = await Promise.all(allPlayerRefs.map(({ ref }) => transaction.get(ref)));
+
+    const eligibleWinner = findEligibleWinner(
+      userId,
+      allPlayerDocs
+        .filter((doc) => doc.exists())
+        .map((doc) => ({ id: doc.id, data: () => doc.data() as Player })),
+      roomData.playerOrder
+    );
+
     // Clear hand
     transaction.update(handRef, {
       cards: [],
@@ -1387,33 +1413,10 @@ export const goOut = async (
 
     // Add discard card to pile (if any)
     if (discardCard) {
-      const deckRef = doc(db, 'rooms', roomId, 'state', 'deck');
-      const deckDoc = await transaction.get(deckRef);
-      const deckData = deckDoc.data() as DeckState;
-
       transaction.update(deckRef, {
         discard: [...deckData.discard, discardCard],
       });
     }
-
-    // Read all player documents to find eligible winner
-    const allPlayerRefs: Array<{ ref: any; id: string }> = [];
-    const allPlayerDocs: any[] = [];
-    for (const playerId of roomData.playerOrder) {
-      const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
-      allPlayerRefs.push({ ref: playerRef, id: playerId });
-      const playerDoc = await transaction.get(playerRef);
-      if (playerDoc.exists()) {
-        allPlayerDocs.push(playerDoc);
-      }
-    }
-    
-    // Find eligible winner (player with < 100 points)
-    const eligibleWinner = findEligibleWinner(
-      userId,
-      allPlayerDocs.map((doc, idx) => ({ id: allPlayerRefs[idx].id, data: () => doc.data() as Player })),
-      roomData.playerOrder
-    );
 
     // End round
     transaction.update(roomRef, {
@@ -1426,16 +1429,14 @@ export const goOut = async (
     });
 
     // Reset all player blocks for next round
-    for (const playerId of roomData.playerOrder) {
-      const playerRef = doc(db, 'rooms', roomId, 'players', playerId);
-      const playerDoc = await transaction.get(playerRef);
+    allPlayerDocs.forEach((playerDoc, index) => {
       if (playerDoc.exists()) {
         const playerData = playerDoc.data();
         if (playerData && playerData.isBlocked) {
-          transaction.update(playerRef, { isBlocked: false });
+          transaction.update(allPlayerRefs[index].ref, { isBlocked: false });
         }
       }
-    }
+    });
   });
 };
 
