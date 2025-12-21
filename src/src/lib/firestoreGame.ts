@@ -321,7 +321,7 @@ export const startGame = async (roomId: string): Promise<void> => {
 
       // Reset all player blocks and hasDrawnThisTurn for new round
       playerDocs.forEach((playerDoc) => {
-        const playerData = playerDoc.data();
+        const playerData = playerDoc.data() as Player | undefined;
         if (playerDoc.ref) {
           const updates: any = { hasDrawnThisTurn: false };
           if (playerData && playerData.isBlocked) {
@@ -1281,7 +1281,7 @@ export const attemptGoOut = async (
       // Reset all player blocks for next round (using already-read docs)
       allPlayerDocs.forEach((playerDoc, index) => {
         if (playerDoc.exists()) {
-          const pData = playerDoc.data();
+          const pData = playerDoc.data() as Player | undefined;
           if (pData && pData.isBlocked) {
             transaction.update(allPlayerRefs[index].ref, { isBlocked: false });
           }
@@ -1431,7 +1431,7 @@ export const goOut = async (
     // Reset all player blocks for next round
     allPlayerDocs.forEach((playerDoc, index) => {
       if (playerDoc.exists()) {
-        const playerData = playerDoc.data();
+        const playerData = playerDoc.data() as Player | undefined;
         if (playerData && playerData.isBlocked) {
           transaction.update(allPlayerRefs[index].ref, { isBlocked: false });
         }
