@@ -42,8 +42,11 @@ function App() {
                       caches.delete(cacheName);
                     });
                   });
-                  // Force reload when new service worker is activated
-                  window.location.reload();
+                  // Não recarregar automaticamente durante uma partida (evita "sair da sala sozinho")
+                  const inRoom = window.location.pathname.startsWith('/room/');
+                  if (!inRoom) {
+                    window.location.reload();
+                  }
                 }
               });
             }

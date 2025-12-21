@@ -243,14 +243,26 @@ export function HandScroller({
     ? 'flex flex-nowrap gap-2 justify-center relative overflow-x-auto py-1 px-3'
     : 'flex flex-wrap gap-2 justify-center relative';
 
+  const containerStyle: React.CSSProperties = {
+    touchAction: onReorder ? 'none' : 'auto',
+    ...(touch && shouldOverlap
+      ? {
+          // Como usamos marginLeft negativo para sobrepor, precisamos de "folga" nas bordas
+          // para a primeira/última carta não ficarem cortadas.
+          paddingLeft: 12 + overlapPx,
+          paddingRight: 12 + overlapPx,
+          scrollPaddingLeft: 12 + overlapPx,
+          scrollPaddingRight: 12 + overlapPx,
+        }
+      : null),
+  };
+
   return (
     <div 
       className={containerClass}
       onDragOver={handleContainerDragOver}
       onDrag={handleDrag}
-      style={{
-        touchAction: onReorder ? 'none' : 'auto', // Prevenir scroll durante drag no mobile
-      }}
+      style={containerStyle}
     >
       {/* Carta sendo arrastada (mobile e desktop durante touch) - renderizada via Portal */}
       {draggedIndex !== null && dragPosition && draggedCardData && typeof document !== 'undefined' && createPortal(
